@@ -127,13 +127,14 @@ async def test_login_refresh_logout_flow(app: FastAPI, auth_service: AuthService
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         login_resp = await client.post(
             "/api/v1/auth/login",
-            json={"username": "user1", "password": "secret"},
+            data={"username": "user1", "password": "secret"},
         )
 
         assert login_resp.status_code == 200
         data = login_resp.json()
         assert "access_token" in data
         assert "refresh_token" in data
+        assert data["token_type"] == "bearer"
 
         refresh_resp = await client.post(
             "/api/v1/auth/refresh",

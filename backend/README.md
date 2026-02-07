@@ -4,7 +4,7 @@
 **Refresh token (opaque)** is stored hashed in DB and used to rotate tokens.
 
 ### Endpoints
-- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/login` (OAuth2 password form)
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 

@@ -16,6 +16,7 @@ from app.core.utils.hashing import get_password_hasher as _get_password_hasher
 from app.repositories import SessionRepository, UserRepository
 from app.services.auth.auth_services import AuthService
 from app.services.jwt import JwtService
+from app.services.jwt.jwt_errors import JwtError
 from app.services.sessions.session_services import SessionService
 
 
@@ -87,8 +88,13 @@ async def get_current_user(
     session_service: SessionService = Depends(get_session_service),
     user_repo: UserRepository = Depends(get_user_repo),
 ):
-    payload = jwt_service.verify_access_token(token)
-    session = await session_service.validate_session(payload.session_id)
+    try:
+        payload = jwt_service.verify_access_token(token)
+        session = await session_service.validate_session(payload.session_id)
+    except JwtError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
+        ) from exc
 
     user = await user_repo.get_by_id(session.user_id)
     if user is None or not user.is_active:

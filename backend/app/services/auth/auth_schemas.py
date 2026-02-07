@@ -9,34 +9,18 @@ login, token refresh, and token responses.
 from pydantic import BaseModel, Field
 
 
-class LoginInput(BaseModel):
-    """Schema for user login input.
-
-    Attributes:
-        username (str): The username or email of the user.
-        password (str): The user's password.
-    """
-
-    username: str = Field(..., description="Username or email")
-    password: str = Field(..., description="User password")
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [{"username": "john_doe", "password": "secret123"}]
-        }
-    }
-
-
 class LoginResponse(BaseModel):
     """Schema for login response containing both tokens.
 
     Attributes:
         access_token (str): The JWT access token for API authentication.
         refresh_token (str): The opaque refresh token for obtaining new access tokens.
+        token_type (str): Token type (bearer).
     """
 
     access_token: str = Field(..., description="JWT access token")
     refresh_token: str = Field(..., description="Opaque refresh token")
+    token_type: str = Field(default="bearer", description="Token type")
 
     model_config = {
         "json_schema_extra": {
@@ -44,6 +28,7 @@ class LoginResponse(BaseModel):
                 {
                     "access_token": "eyJhbGciOiJIUzI1NiIs...",
                     "refresh_token": "aBcDeFgHiJkLmNoPqRsTuVwXyZ",
+                    "token_type": "bearer",
                 }
             ]
         }

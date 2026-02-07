@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request, status
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.deps import (
     get_auth_service,
@@ -18,7 +19,6 @@ from app.services.auth.auth_errors import InvalidCredentialsError
 from app.services.auth.auth_schemas import (
     AdminRevokeSessionInput,
     AdminRevokeUserSessionsInput,
-    LoginInput,
     LoginResponse,
     LogoutInput,
     RefreshTokenInput,
@@ -39,22 +39,22 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
     summary="Login and issue tokens",
 )
 async def login(
-    data: LoginInput,
     request: Request,
+    form: OAuth2PasswordRequestForm = Depends(),
     auth: AuthService = Depends(get_auth_service),
     users: UserRepository = Depends(get_user_repo),
     password_hasher: PasswordHash = Depends(get_password_hasher),
 ) -> LoginResponse:
     """Authenticate user and return access + refresh tokens."""
-    if "@" in data.username:
-        user = await users.get_by_email(data.username)
+    if "@" in form.username:
+        user = await users.get_by_email(form.username)
     else:
-        user = await users.get_by_username(data.username)
+        user = await users.get_by_username(form.username)
 
     if user is None:
         raise InvalidCredentialsError()
 
-    if not password_hasher.verify(data.password, user.hashed_password):
+    if not password_hasher.verify(form.password, user.hashed_password):
         raise InvalidCredentialsError()
 
     ip = request.client.host if request.client else None
