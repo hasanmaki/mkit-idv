@@ -52,35 +52,15 @@ class DatabaseConfig(BaseSettings):
     db_url: str = "sqlite+aiosqlite:///./application.db"
 
 
-class LogConfig(BaseSettings):
-    """Logging configuration settings."""
-
-    model_config = {"env_prefix": "LOG_"}
-
-    # Base configuration
-    log_level: str = "INFO"  # Can be overridden via env
-    log_file: str = "logs/app.log"
-    log_rotation: str = "10 MB"
-    log_retention: str = "7 days"
-
-    # Advanced options
-    log_format: str | None = None  # Custom format (optional)
-    log_json: bool = False  # JSON format for production
-    log_colorize: bool = True  # Colorize terminal output
-    log_backtrace: bool = False  # Enable backtrace for errors
-    log_diagnose: bool = False  # Enable diagnose for errors
-
-
 class AppSettings(BaseSettings):
     """Application settings for FastAPI app."""
 
     app_name: str = "mkit-indosat voucher service"
     app_version: str = "0.1.0"
-    debug: bool = True
+    debug: bool = False
     db: str = DatabaseConfig().db_url
     cors: CorsConfig = CorsConfig()
     jwt: JwtConfig = JwtConfig()
-    log: LogConfig = LogConfig()
 
     model_config = {
         "env_file": ".env",
