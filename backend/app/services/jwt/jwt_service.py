@@ -127,7 +127,8 @@ class JwtService:
                 raise ValueError(f"Forbidden claims: {overlap}")
             payload.update(extra_claims)
 
-        return self._encode(payload)
+        payload_model = AccessTokenPayload(**payload)
+        return self._encode(payload_model.model_dump())
 
     def verify_access_token(self, token: str) -> AccessTokenPayload:
         """Verify an access token.

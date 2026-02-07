@@ -15,13 +15,10 @@ import pytest
 from app.core.settings import JwtConfig
 from app.services.jwt import (
     AccessTokenPayload,
-    CreateAccessTokenInput,
-    CreateRefreshTokenInput,
     JwtExpiredTokenError,
     JwtInvalidTokenError,
     JwtInvalidTokenTypeError,
     JwtService,
-    RefreshTokenPayload,
 )
 from faker import Faker
 from pydantic import SecretStr
@@ -60,7 +57,6 @@ class TestJwtServiceInit:
         assert service._secret == jwt_config.secret
         assert service._algorithm == jwt_config.algorithm
         assert service._access_exp_minutes == jwt_config.access_token_expire_minutes
-        assert service._refresh_exp_minutes == jwt_config.refresh_token_expire_minutes
 
 
 class TestCreateAccessToken:
@@ -107,6 +103,8 @@ class TestCreateAccessToken:
             user_id=user_id, session_id=session_id, extra_claims=extra_claims
         )
         payload = jwt_service.verify_access_token(token)
+        assert payload.model_dump().get("custom") == "value"
+        assert payload.model_dump().get("foo") == 123
 
     def test_create_access_token_without_extra_claims(
         self, jwt_service: JwtService, faker: Faker
@@ -123,19 +121,34 @@ class TestCreateAccessToken:
         assert payload.type == "access"
 
 
-class TestCreateRefreshToken:
-    """Tests for refresh token creation."""
+class TestRefreshTokenGeneration:
+    """Tests for opaque refresh token generation and hashing."""
 
-    def test_create_refresh_token_basic(
+    def test_generate_refresh_token_basic(
+        self, jwt_service: JwtService
+    ) -> None:
+        """Test basic refresh token generation."""
+        token, token_hash = jwt_service.generate_refresh_token()
+        assert isinstance(token, str)
+        assert isinstance(token_hash, str)
+        assert token != token_hash
+        assert len(token) > 32
+
+    def test_hash_refresh_token_matches_generated_hash(
+        self, jwt_service: JwtService
+    ) -> None:
+        """Test that hashing a token matches the generated hash."""
+        token, token_hash = jwt_service.generate_refresh_token()
+        assert jwt_service.hash_refresh_token(token) == token_hash
+
+    def test_hash_refresh_token_is_stable(
         self, jwt_service: JwtService, faker: Faker
     ) -> None:
-        """Test basic refresh token creation."""
-        session_id = faker.uuid4()
-
-        token = jwt_service.create_refresh_token(session_id=session_id)
-
-        assert isinstance(token, str)
-        assert len(token.split(".")) == 3  # JWT has 3 parts
+        """Test that refresh token hashing is deterministic."""
+        token = faker.sha256()
+        assert jwt_service.hash_refresh_token(token) == jwt_service.hash_refresh_token(
+            token
+        )
 
 
 class TestVerifyAccessToken:
@@ -170,18 +183,6 @@ class TestVerifyAccessToken:
         assert hasattr(payload, "model_dump")
         assert hasattr(payload, "model_dump_json")
 
-    def test_verify_access_token_with_allowed_extra_claims(
-        self, jwt_service: JwtService, faker: Faker
-    ) -> None:
-        """Test access token verification with allowed extra claims (custom, non-privileged, non-sensitive)."""
-        user_id = faker.random_int()
-        session_id = faker.uuid4()
-        extra_claims = {"custom": "value", "foo": 123}
-        token = jwt_service.create_access_token(
-            user_id=user_id, session_id=session_id, extra_claims=extra_claims
-        )
-        payload = jwt_service.verify_access_token(token)
-
     def test_verify_access_token_invalid_token(self, jwt_service: JwtService) -> None:
         """Test verification with invalid token."""
         with pytest.raises(JwtInvalidTokenError):
@@ -210,10 +211,17 @@ class TestVerifyAccessToken:
         self, jwt_service: JwtService, faker: Faker
     ) -> None:
         """Test verification with wrong token type."""
+        user_id = faker.random_int()
         session_id = faker.uuid4()
-
-        # Create a refresh token and try to verify as access token
-        token = jwt_service.create_refresh_token(session_id=session_id)
+        token = jwt_service._encode(  # pyright: ignore[reportPrivateUsage]
+            {
+                "sub": str(user_id),
+                "jti": session_id,
+                "type": "refresh",
+                "iat": datetime.now(UTC),
+                "exp": datetime.now(UTC) + timedelta(minutes=30),
+            }
+        )
 
         with pytest.raises(JwtInvalidTokenTypeError) as exc_info:
             jwt_service.verify_access_token(token)
@@ -221,76 +229,6 @@ class TestVerifyAccessToken:
         assert "expected" in exc_info.value.context
         assert exc_info.value.context["expected"] == "access"
         assert exc_info.value.context["actual"] == "refresh"
-
-
-class TestVerifyRefreshToken:
-    """Tests for refresh token verification."""
-
-    def test_verify_refresh_token_success(
-        self, jwt_service: JwtService, faker: Faker
-    ) -> None:
-        """Test successful refresh token verification."""
-        session_id = faker.uuid4()
-
-        token = jwt_service.create_refresh_token(session_id=session_id)
-        payload = jwt_service.verify_refresh_token(token)
-
-        assert isinstance(payload, RefreshTokenPayload)
-        assert payload.session_id == session_id
-        assert payload.type == "refresh"
-
-    def test_verify_refresh_token_returns_pydantic_model(
-        self, jwt_service: JwtService, faker: Faker
-    ) -> None:
-        """Test that verify_refresh_token returns a Pydantic model."""
-        session_id = faker.uuid4()
-
-        token = jwt_service.create_refresh_token(session_id=session_id)
-        payload = jwt_service.verify_refresh_token(token)
-
-        # Test that it's a Pydantic model with model_dump method
-        assert hasattr(payload, "model_dump")
-        assert hasattr(payload, "model_dump_json")
-
-    def test_verify_refresh_token_invalid_token(self, jwt_service: JwtService) -> None:
-        """Test verification with invalid token."""
-        with pytest.raises(JwtInvalidTokenError):
-            jwt_service.verify_refresh_token("invalid.token.string")
-
-    def test_verify_refresh_token_expired_token(
-        self, jwt_service: JwtService, faker: Faker, monkeypatch
-    ) -> None:
-        """Test verification with expired token."""
-        session_id = faker.uuid4()
-
-        # Mock _now to return a time in the past
-        past_time = datetime.now(UTC) - timedelta(hours=25)
-        monkeypatch.setattr(jwt_service, "_now", lambda: past_time)
-
-        token = jwt_service.create_refresh_token(session_id=session_id)
-
-        # Restore _now to current time for verification
-        monkeypatch.undo()
-
-        with pytest.raises(JwtExpiredTokenError):
-            jwt_service.verify_refresh_token(token)
-
-    def test_verify_refresh_token_wrong_type(
-        self, jwt_service: JwtService, faker: Faker
-    ) -> None:
-        """Test verification with wrong token type."""
-        user_id = faker.random_int()
-        session_id = faker.uuid4()
-
-        # Create an access token and try to verify as refresh token
-        token = jwt_service.create_access_token(user_id=user_id, session_id=session_id)
-
-        with pytest.raises(JwtInvalidTokenTypeError) as exc_info:
-            jwt_service.verify_refresh_token(token)
-
-        assert "expected" in exc_info.value.context
-        assert exc_info.value.context["expected"] == "refresh"
-        assert exc_info.value.context["actual"] == "access"
 
 
 class TestTokenExpiration:
@@ -309,21 +247,6 @@ class TestTokenExpiration:
 
         # Check that expiration is approximately 30 minutes from now
         expected_exp = now + timedelta(minutes=30)
-        time_diff = abs((payload.exp - expected_exp).total_seconds())
-        assert time_diff < 5  # Allow 5 seconds tolerance
-
-    def test_refresh_token_expiration_time(
-        self, jwt_service: JwtService, faker: Faker
-    ) -> None:
-        """Test that refresh token has correct expiration time."""
-        session_id = faker.uuid4()
-
-        now = datetime.now(UTC)
-        token = jwt_service.create_refresh_token(session_id=session_id)
-        payload = jwt_service.verify_refresh_token(token)
-
-        # Check that expiration is approximately 24 hours from now
-        expected_exp = now + timedelta(hours=24)
         time_diff = abs((payload.exp - expected_exp).total_seconds())
         assert time_diff < 5  # Allow 5 seconds tolerance
 
@@ -365,65 +288,6 @@ class TestAccessTokenPayload:
             )  # pyright: ignore[reportCallIssue]
 
 
-class TestRefreshTokenPayload:
-    """Tests for RefreshTokenPayload Pydantic model."""
-
-    def test_refresh_token_payload_properties(self, faker: Faker) -> None:
-        """Test RefreshTokenPayload properties."""
-        session_id = faker.uuid4()
-        now = datetime.now(UTC)
-        exp = now + timedelta(hours=1)
-
-        payload = RefreshTokenPayload(
-            jti=session_id,
-            type="refresh",
-            iat=now,
-            exp=exp,
-        )
-
-        assert payload.session_id == session_id
-
-
-class TestCreateAccessTokenInput:
-    """Tests for CreateAccessTokenInput Pydantic model."""
-
-    def test_create_access_token_input_valid(self, faker: Faker) -> None:
-        """Test CreateAccessTokenInput with allowed extra claims (custom, non-privileged, non-sensitive)."""
-        user_id = faker.random_int()
-        session_id = faker.uuid4()
-        input_data = CreateAccessTokenInput(
-            user_id=user_id,
-            session_id=session_id,
-            extra_claims={"custom": "value"},
-        )
-        assert input_data.user_id == user_id
-        assert input_data.session_id == session_id
-        assert input_data.extra_claims == {"custom": "value"}
-
-    def test_create_access_token_input_without_extra_claims(self, faker: Faker) -> None:
-        """Test CreateAccessTokenInput without extra claims."""
-        user_id = faker.random_int()
-        session_id = faker.uuid4()
-
-        input_data = CreateAccessTokenInput(user_id=user_id, session_id=session_id)
-
-        assert input_data.user_id == user_id
-        assert input_data.session_id == session_id
-        assert input_data.extra_claims is None
-
-
-class TestCreateRefreshTokenInput:
-    """Tests for CreateRefreshTokenInput Pydantic model."""
-
-    def test_create_refresh_token_input_valid(self, faker: Faker) -> None:
-        """Test CreateRefreshTokenInput with valid data."""
-        session_id = faker.uuid4()
-
-        input_data = CreateRefreshTokenInput(session_id=session_id)
-
-        assert input_data.session_id == session_id
-
-
 class TestTokenClaims:
     """Tests for token claims."""
 
@@ -443,20 +307,6 @@ class TestTokenClaims:
         assert hasattr(payload, "iat")
         assert hasattr(payload, "exp")
 
-    def test_refresh_token_has_required_claims(
-        self, jwt_service: JwtService, faker: Faker
-    ) -> None:
-        """Test that refresh token has all required claims."""
-        session_id = faker.uuid4()
-
-        token = jwt_service.create_refresh_token(session_id=session_id)
-        payload = jwt_service.verify_refresh_token(token)
-
-        assert hasattr(payload, "jti")
-        assert hasattr(payload, "type")
-        assert hasattr(payload, "iat")
-        assert hasattr(payload, "exp")
-
 
 class TestTokenTypes:
     """Tests for token type constants."""
@@ -464,7 +314,3 @@ class TestTokenTypes:
     def test_access_token_type_constant(self, jwt_service: JwtService) -> None:
         """Test access token type constant."""
         assert jwt_service.ACCESS_TOKEN_TYPE == "access"
-
-    def test_refresh_token_type_constant(self, jwt_service: JwtService) -> None:
-        """Test refresh token type constant."""
-        assert jwt_service.REFRESH_TOKEN_TYPE == "refresh"

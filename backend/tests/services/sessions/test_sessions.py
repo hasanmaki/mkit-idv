@@ -43,6 +43,12 @@ class DummyRepo:
     async def get_by_session_id(self, session_id):
         return self.sessions.get(session_id)
 
+    async def get_by_refresh_token_hash(self, refresh_token_hash):
+        for session in self.sessions.values():
+            if session.refresh_token_hash == refresh_token_hash:
+                return session
+        return None
+
     async def save(self):
         self.saved = True
 
@@ -165,6 +171,28 @@ async def test_validate_refresh_token_success(service, repo, faker):
 
 
 @pytest.mark.asyncio
+async def test_validate_refresh_token_hash_success(service, repo, faker):
+    now = datetime.now(UTC)
+    user_id = faker.random_int()
+    session_id = faker.uuid4()
+    refresh_token_hash = faker.sha256()
+    session = DummySession(
+        user_id=user_id,
+        session_id=session_id,
+        refresh_token_hash=refresh_token_hash,
+        expires_at=now + timedelta(hours=1),
+        is_revoked=False,
+        revoked_at=None,
+        last_activity_at=None,
+        ip_address=None,
+        user_agent=None,
+    )
+    repo.sessions[session_id] = session
+    result = await service.validate_refresh_token_hash(refresh_token_hash)
+    assert result == session
+
+
+@pytest.mark.asyncio
 async def test_validate_refresh_token_mismatch(service, repo, faker):
     now = datetime.now(UTC)
     user_id = faker.random_int()
@@ -222,6 +250,12 @@ async def test_validate_refresh_token_not_found(service, faker):
 
 
 @pytest.mark.asyncio
+async def test_validate_refresh_token_hash_not_found(service, faker):
+    with pytest.raises(SessionNotFoundError):
+        await service.validate_refresh_token_hash(faker.sha256())
+
+
+@pytest.mark.asyncio
 async def test_validate_refresh_token_revoked(service, repo, faker):
     now = datetime.now(UTC)
     user_id = faker.random_int()
@@ -246,6 +280,28 @@ async def test_validate_refresh_token_revoked(service, repo, faker):
 
 
 @pytest.mark.asyncio
+async def test_validate_refresh_token_hash_revoked(service, repo, faker):
+    now = datetime.now(UTC)
+    user_id = faker.random_int()
+    session_id = faker.uuid4()
+    refresh_token_hash = faker.sha256()
+    session = DummySession(
+        user_id=user_id,
+        session_id=session_id,
+        refresh_token_hash=refresh_token_hash,
+        expires_at=now + timedelta(hours=1),
+        is_revoked=True,
+        revoked_at=now,
+        last_activity_at=None,
+        ip_address=None,
+        user_agent=None,
+    )
+    repo.sessions[session_id] = session
+    with pytest.raises(SessionRevokedError):
+        await service.validate_refresh_token_hash(refresh_token_hash)
+
+
+@pytest.mark.asyncio
 async def test_validate_refresh_token_expired(service, repo, faker):
     now = datetime.now(UTC)
     user_id = faker.random_int()
@@ -267,6 +323,28 @@ async def test_validate_refresh_token_expired(service, repo, faker):
         await service.validate_refresh_token(
             session_id=session_id, refresh_token_hash=refresh_token_hash
         )
+
+
+@pytest.mark.asyncio
+async def test_validate_refresh_token_hash_expired(service, repo, faker):
+    now = datetime.now(UTC)
+    user_id = faker.random_int()
+    session_id = faker.uuid4()
+    refresh_token_hash = faker.sha256()
+    session = DummySession(
+        user_id=user_id,
+        session_id=session_id,
+        refresh_token_hash=refresh_token_hash,
+        expires_at=now - timedelta(seconds=1),
+        is_revoked=False,
+        revoked_at=None,
+        last_activity_at=None,
+        ip_address=None,
+        user_agent=None,
+    )
+    repo.sessions[session_id] = session
+    with pytest.raises(SessionExpiredError):
+        await service.validate_refresh_token_hash(refresh_token_hash)
 
 
 @pytest.mark.asyncio

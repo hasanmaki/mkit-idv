@@ -50,22 +50,6 @@ class LoginResponse(BaseModel):
     }
 
 
-class RefreshTokenInput(BaseModel):
-    """Schema for token refresh input.
-
-    Attributes:
-        refresh_token (str): The opaque refresh token.
-    """
-
-    refresh_token: str = Field(..., description="Opaque refresh token")
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [{"refresh_token": "aBcDeFgHiJkLmNoPqRsTuVwXyZ"}]
-        }
-    }
-
-
 class RefreshTokenResponse(BaseModel):
     """Schema for token refresh response.
 
@@ -89,17 +73,3 @@ class RefreshTokenResponse(BaseModel):
     }
 
 
-class LogoutInput(BaseModel):
-    """Schema for logout input.
-
-    Attributes:
-        refresh_token (str): The opaque refresh token to revoke.
-    """
-
-    refresh_token: str = Field(..., description="Opaque refresh token to revoke")
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [{"refresh_token": "aBcDeFgHiJkLmNoPqRsTuVwXyZ"}]
-        }
-    }
