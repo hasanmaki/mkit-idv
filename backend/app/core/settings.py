@@ -28,7 +28,7 @@ class CorsConfig(BaseSettings):
 
     model_config = {"env_prefix": "CORS_"}
 
-    allow_origins: list[str] = ["*"]
+    allow_origins: list[str] = ["http://localhost", "https://yourdomain.com"]
     allow_methods: list[str] = ["*"]
     allow_headers: list[str] = ["*"]
     allow_credentials: bool = True
@@ -42,7 +42,7 @@ class JwtConfig(BaseSettings):
     # Do NOT hardcode secrets. Use SecretStr and require env in production.
     secret_key: SecretStr | None = None
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 300  # 5 hours
+    access_token_expire_minutes: int = 10
     refresh_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
     @property
@@ -72,7 +72,7 @@ class AppSettings(BaseSettings):
     app_name: str = "mkit-indosat voucher service"
     app_version: str = "0.1.0"
     debug: bool = False
-    db: str = DatabaseConfig().db_url
+    db: DatabaseConfig = Field(default_factory=DatabaseConfig)
     cors: CorsConfig = Field(default_factory=CorsConfig)
     jwt: JwtConfig = Field(default_factory=JwtConfig)
 
