@@ -9,9 +9,10 @@ It is only responsible for signing, verifying, and validating token structure an
 Authorization and user/session state checks belong in SessionService/UserService/AuthService.
 """
 
-# services/auth/jwt_services.py
 from __future__ import annotations
 
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -27,10 +28,7 @@ from .jwt_errors import (
     JwtInvalidTokenTypeError,
     JwtMissingClaimError,
 )
-from .jwt_schemas import (
-    AccessTokenPayload,
-    RefreshTokenPayload,
-)
+from .jwt_schemas import AccessTokenPayload
 
 
 class JwtService:
@@ -38,30 +36,28 @@ class JwtService:
 
     Attributes:
         ACCESS_TOKEN_TYPE (str): Constant for access token type.
-        REFRESH_TOKEN_TYPE (str): Constant for refresh token type.
 
     Methods:
         create_access_token: Create a new access token.
-        create_refresh_token: Create a new refresh token.
         verify_access_token: Verify an access token.
-        verify_refresh_token: Verify a refresh token.
+        generate_refresh_token: Generate an opaque refresh token (plaintext + hash).
+        hash_refresh_token: Hash an opaque refresh token.
 
     Usage:
         config = JwtConfig(...)
         jwt_service = JwtService(config)
         access_token = jwt_service.create_access_token(user_id=1, session_id="...")
         payload = jwt_service.verify_access_token(access_token)
+        refresh_token, refresh_hash = jwt_service.generate_refresh_token()
 
     """
 
     ACCESS_TOKEN_TYPE = "access"
-    REFRESH_TOKEN_TYPE = "refresh"
 
     def __init__(self, config: JwtConfig) -> None:
         self._secret: str = config.secret
         self._algorithm: str = config.algorithm
         self._access_exp_minutes: int = config.access_token_expire_minutes
-        self._refresh_exp_minutes: int = config.refresh_token_expire_minutes
 
     def _now(self) -> datetime:
         """Separated for testability."""
@@ -76,6 +72,7 @@ class JwtService:
                 token,
                 self._secret,
                 algorithms=[self._algorithm],
+                options={"verify_aud": False},
             )
         except ExpiredSignatureError as exc:
             raise JwtExpiredTokenError(original_exception=exc)
@@ -107,12 +104,13 @@ class JwtService:
         Raises:
             ValueError: If forbidden business claims are present in extra_claims.
         """
+        now = self._now()
         payload: dict[str, Any] = {
             "sub": str(user_id),
             "jti": session_id,
             "type": self.ACCESS_TOKEN_TYPE,
-            "iat": self._now(),
-            "exp": self._now() + timedelta(minutes=self._access_exp_minutes),
+            "iat": now,
+            "exp": now + timedelta(minutes=self._access_exp_minutes),
         }
 
         if extra_claims:
@@ -126,53 +124,24 @@ class JwtService:
             }
             overlap = forbidden.intersection(extra_claims.keys())
             if overlap:
-                raise ValueError(
-                    f"Forbidden business claims in extra_claims: {overlap}"
-                )
+                raise ValueError(f"Forbidden claims: {overlap}")
             payload.update(extra_claims)
 
         return self._encode(payload)
-
-    def create_refresh_token(
-        self,
-        *,
-        session_id: str,
-    ) -> str:
-        """Create a new refresh token.
-
-        Args:
-            session_id (str): ID of the session.
-
-        Returns:
-            str: Encoded JWT refresh token.
-
-        """
-        payload: dict[str, Any] = {
-            "jti": session_id,
-            "type": self.REFRESH_TOKEN_TYPE,
-            "iat": self._now(),
-            "exp": self._now() + timedelta(minutes=self._refresh_exp_minutes),
-        }
-
-        return self._encode(payload)
-
-    # -------------------------
-    # Verification
-    # -------------------------
 
     def verify_access_token(self, token: str) -> AccessTokenPayload:
         """Verify an access token.
 
         Args:
-            token (str): Encoded JWT access token.
+            token (str): The JWT access token to verify.
 
         Returns:
-            AccessTokenPayload: Validated token payload.
+            AccessTokenPayload: The decoded and validated token payload.
 
         Raises:
-            JwtExpiredTokenError: If token is expired.
-            JwtInvalidTokenError: If token is invalid.
-            JwtInvalidTokenTypeError: If token is not an access token.
+            JwtExpiredTokenError: If the token has expired.
+            JwtInvalidTokenError: If the token is invalid or signature is wrong.
+            JwtInvalidTokenTypeError: If the token type is not "access".
             JwtMissingClaimError: If required claims are missing.
         """
         payload = self._decode_raw(token)
@@ -188,29 +157,25 @@ class JwtService:
 
         return AccessTokenPayload(**payload)
 
-    def verify_refresh_token(self, token: str) -> RefreshTokenPayload:
-        """Verify a refresh token.
-
-        Args:
-            token (str): Encoded JWT refresh token.
+    def generate_refresh_token(self) -> tuple[str, str]:
+        """Generate an opaque refresh token.
 
         Returns:
-            RefreshTokenPayload: Validated token payload.
-
-        Raises:
-            JwtExpiredTokenError: If token is expired.
-            JwtInvalidTokenError: If token is invalid.
-            JwtInvalidTokenTypeError: If token is not a refresh token.
-            JwtMissingClaimError: If required claims are missing.
+            tuple[str, str]: A tuple containing (plaintext_token, hashed_token).
+            The plaintext token is returned to the client.
+            The hashed token is stored in the database.
         """
-        payload = self._decode_raw(token)
+        token = secrets.token_urlsafe(64)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        return token, token_hash
 
-        token_type = self._require_claim(payload, "type")
-        if token_type != self.REFRESH_TOKEN_TYPE:
-            raise JwtInvalidTokenTypeError(
-                context={"expected": self.REFRESH_TOKEN_TYPE, "actual": token_type}
-            )
+    def hash_refresh_token(self, token: str) -> str:
+        """Hash an opaque refresh token.
 
-        self._require_claim(payload, "jti")
+        Args:
+            token (str): The plaintext refresh token.
 
-        return RefreshTokenPayload(**payload)
+        Returns:
+            str: The SHA-256 hash of the token.
+        """
+        return hashlib.sha256(token.encode()).hexdigest()

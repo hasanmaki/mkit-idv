@@ -20,6 +20,7 @@ Note:
 """
 
 from datetime import UTC, datetime
+from hmac import compare_digest
 
 from app.models.sessions import Session
 from app.repositories import SessionRepository
@@ -95,8 +96,25 @@ class SessionService:
         if session.expires_at <= self._now():
             raise SessionExpiredError(context={"session_id": session_id})
 
-        if session.refresh_token_hash != refresh_token_hash:
+        if not compare_digest(session.refresh_token_hash, refresh_token_hash):
             raise RefreshTokenMismatchError(context={"session_id": session_id})
+
+        return session
+
+    async def validate_refresh_token_hash(
+        self, refresh_token_hash: str
+    ) -> Session:
+        """Validate a refresh token hash and return its session."""
+        session = await self.repo.get_by_refresh_token_hash(refresh_token_hash)
+
+        if not session:
+            raise SessionNotFoundError(context={"refresh_token_hash": "not_found"})
+
+        if session.is_revoked:
+            raise SessionRevokedError(context={"session_id": session.session_id})
+
+        if session.expires_at <= self._now():
+            raise SessionExpiredError(context={"session_id": session.session_id})
 
         return session
 

@@ -58,6 +58,14 @@ class SessionRepository:
         await self.db.commit()
         await self.db.refresh(session)
 
+    async def get_by_refresh_token_hash(
+        self, refresh_token_hash: str
+    ) -> Session | None:
+        """Get session by refresh token hash."""
+        stmt = select(Session).where(Session.refresh_token_hash == refresh_token_hash)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def save(self) -> None:
         """Save changes to the database."""
         await self.db.commit()
