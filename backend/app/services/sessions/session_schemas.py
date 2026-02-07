@@ -48,3 +48,18 @@ class SessionValidationResult(BaseModel):
     model_config = {
         "from_attributes": True,
     }
+
+
+class SessionPublic(BaseModel):
+    """Public schema for session data."""
+
+    session_id: str
+    is_revoked: bool
+    expires_at: datetime
+    last_activity_at: datetime | None
+    ip_address: str | None
+    user_agent: str | None
+
+    model_config = {
+        "from_attributes": True,
+    }

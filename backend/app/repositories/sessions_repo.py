@@ -66,6 +66,12 @@ class SessionRepository:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def list_by_user_id(self, user_id: int) -> list[Session]:
+        """List sessions by user id."""
+        stmt = select(Session).where(Session.user_id == user_id)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
     async def save(self) -> None:
         """Save changes to the database."""
         await self.db.commit()

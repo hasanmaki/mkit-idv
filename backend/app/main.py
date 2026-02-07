@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from httpx import AsyncClient
 from loguru import logger
 
 from app.api import include_api_routers
@@ -21,7 +22,9 @@ async def lifespan_app(app: FastAPI):  # noqa: ARG001, RUF029
         app (FastAPI): The FastAPI application instance.
     """
     logger.info("Starting application lifespan...")
+    app.state.httpx = AsyncClient()
     yield
+    await app.state.httpx.aclose()
     logger.info("Ending application lifespan...")
 
 

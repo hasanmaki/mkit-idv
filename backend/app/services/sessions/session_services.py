@@ -128,3 +128,22 @@ class SessionService:
         session.is_revoked = True
         session.revoked_at = self._now()
         await self.repo.save()
+
+    async def list_sessions_for_user(self, user_id: int) -> list[Session]:
+        """List sessions for a user."""
+        return await self.repo.list_by_user_id(user_id)
+
+    async def revoke_all_sessions_for_user(self, user_id: int) -> int:
+        """Revoke all sessions for a user. Returns number of sessions revoked."""
+        sessions = await self.repo.list_by_user_id(user_id)
+        if not sessions:
+            return 0
+
+        now = self._now()
+        for session in sessions:
+            if not session.is_revoked:
+                session.is_revoked = True
+                session.revoked_at = now
+
+        await self.repo.save()
+        return len(sessions)

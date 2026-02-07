@@ -73,3 +73,45 @@ class RefreshTokenResponse(BaseModel):
     }
 
 
+class RefreshTokenInput(BaseModel):
+    """Schema for token refresh input.
+
+    Attributes:
+        refresh_token (str): The opaque refresh token.
+    """
+
+    refresh_token: str = Field(..., description="Opaque refresh token")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"refresh_token": "aBcDeFgHiJkLmNoPqRsTuVwXyZ"}]
+        }
+    }
+
+
+class LogoutInput(BaseModel):
+    """Schema for logout input.
+
+    Attributes:
+        refresh_token (str): The opaque refresh token to revoke.
+    """
+
+    refresh_token: str = Field(..., description="Opaque refresh token to revoke")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"refresh_token": "aBcDeFgHiJkLmNoPqRsTuVwXyZ"}]
+        }
+    }
+
+
+class AdminRevokeSessionInput(BaseModel):
+    """Schema for admin revoke a specific session."""
+
+    session_id: str = Field(..., description="Session ID to revoke")
+
+
+class AdminRevokeUserSessionsInput(BaseModel):
+    """Schema for admin revoke all sessions of a user."""
+
+    user_id: int = Field(..., description="User ID")
