@@ -16,7 +16,20 @@ from faker import Faker
 
 class DummySession:
     def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+        # Ensure last_activity_at and revoked_at are always present
+        self.last_activity_at = kwargs.get("last_activity_at")
+        self.revoked_at = kwargs.get("revoked_at")
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    @property
+    def is_revoked(self):
+        # Avoid recursion: always get from __dict__
+        return self.__dict__.get("_is_revoked", self.__dict__.get("is_revoked", False))
+
+    @is_revoked.setter
+    def is_revoked(self, value):
+        self.__dict__["_is_revoked"] = value
 
 
 class DummyRepo:
@@ -173,3 +186,107 @@ async def test_validate_refresh_token_mismatch(service, repo, faker):
         await service.validate_refresh_token(
             session_id=session_id, refresh_token_hash=faker.sha256()
         )
+
+
+@pytest.mark.asyncio
+async def test_revoke_session_marks_revoked(service, repo, faker):
+    now = datetime.now(UTC)
+    user_id = faker.random_int()
+    session_id = faker.uuid4()
+    refresh_token_hash = faker.sha256()
+    session = DummySession(
+        user_id=user_id,
+        session_id=session_id,
+        refresh_token_hash=refresh_token_hash,
+        expires_at=now + timedelta(hours=1),
+        is_revoked=False,
+        revoked_at=None,
+        last_activity_at=None,
+        ip_address=None,
+        user_agent=None,
+    )
+    repo.sessions[session_id] = session
+    await service.revoke_session(session_id)
+    assert session.is_revoked is True
+    assert session.revoked_at is not None
+    assert repo.saved is True
+
+
+@pytest.mark.asyncio
+async def test_validate_refresh_token_not_found(service, faker):
+    session_id = faker.uuid4()
+    with pytest.raises(SessionNotFoundError):
+        await service.validate_refresh_token(
+            session_id=session_id, refresh_token_hash=faker.sha256()
+        )
+
+
+@pytest.mark.asyncio
+async def test_validate_refresh_token_revoked(service, repo, faker):
+    now = datetime.now(UTC)
+    user_id = faker.random_int()
+    session_id = faker.uuid4()
+    refresh_token_hash = faker.sha256()
+    session = DummySession(
+        user_id=user_id,
+        session_id=session_id,
+        refresh_token_hash=refresh_token_hash,
+        expires_at=now + timedelta(hours=1),
+        is_revoked=True,
+        revoked_at=now,
+        last_activity_at=None,
+        ip_address=None,
+        user_agent=None,
+    )
+    repo.sessions[session_id] = session
+    with pytest.raises(SessionRevokedError):
+        await service.validate_refresh_token(
+            session_id=session_id, refresh_token_hash=refresh_token_hash
+        )
+
+
+@pytest.mark.asyncio
+async def test_validate_refresh_token_expired(service, repo, faker):
+    now = datetime.now(UTC)
+    user_id = faker.random_int()
+    session_id = faker.uuid4()
+    refresh_token_hash = faker.sha256()
+    session = DummySession(
+        user_id=user_id,
+        session_id=session_id,
+        refresh_token_hash=refresh_token_hash,
+        expires_at=now - timedelta(seconds=1),
+        is_revoked=False,
+        revoked_at=None,
+        last_activity_at=None,
+        ip_address=None,
+        user_agent=None,
+    )
+    repo.sessions[session_id] = session
+    with pytest.raises(SessionExpiredError):
+        await service.validate_refresh_token(
+            session_id=session_id, refresh_token_hash=refresh_token_hash
+        )
+
+
+@pytest.mark.asyncio
+async def test_validate_session_updates_last_activity(service, repo, faker):
+    now = datetime.now(UTC)
+    user_id = faker.random_int()
+    session_id = faker.uuid4()
+    refresh_token_hash = faker.sha256()
+    session = DummySession(
+        user_id=user_id,
+        session_id=session_id,
+        refresh_token_hash=refresh_token_hash,
+        expires_at=now + timedelta(hours=1),
+        is_revoked=False,
+        revoked_at=None,
+        last_activity_at=None,
+        ip_address=None,
+        user_agent=None,
+    )
+    repo.sessions[session_id] = session
+    await service.validate_session(session_id)
+    assert session.last_activity_at is not None
+    assert repo.saved is True

@@ -7,7 +7,6 @@ from app.core.settings import get_app_settings
 
 def test_get_app_settings(monkeypatch) -> None:
     """Test get_app_settings function."""
-    # Ensure a deterministic JWT secret for the test
     monkeypatch.setenv("JWT_SECRET_KEY", "test-jwt-secret")
     import os
 
@@ -19,8 +18,8 @@ def test_get_app_settings(monkeypatch) -> None:
     assert settings.app_name == "mkit-indosat voucher service"
     assert settings.app_version == "0.1.0"
     assert settings.debug is False
-    assert settings.db == "sqlite+aiosqlite:///./application.db"
-    assert settings.cors.allow_origins == ["*"]
+    assert settings.db.db_url == "sqlite+aiosqlite:///./application.db"
+    assert settings.cors.allow_origins == ["http://localhost", "https://yourdomain.com"]
     assert settings.jwt.secret == "test-jwt-secret"
 
 

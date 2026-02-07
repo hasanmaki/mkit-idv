@@ -42,6 +42,7 @@ class SessionService:
         return datetime.now(UTC)
 
     async def create_session(self, data: SessionCreate) -> Session:
+        """Create a new session."""
         session = Session(
             user_id=data.user_id,
             session_id=data.session_id,
@@ -54,6 +55,7 @@ class SessionService:
         return session
 
     async def validate_session(self, session_id: str) -> SessionValidationResult:
+        """Validate an existing session."""
         session = await self.repo.get_by_session_id(session_id)
 
         if not session:
@@ -81,6 +83,7 @@ class SessionService:
         session_id: str,
         refresh_token_hash: str,
     ) -> Session:
+        """Validate a refresh token for a session."""
         session = await self.repo.get_by_session_id(session_id)
 
         if not session:
@@ -98,6 +101,7 @@ class SessionService:
         return session
 
     async def revoke_session(self, session_id: str) -> None:
+        """Revoke an existing session."""
         session = await self.repo.get_by_session_id(session_id)
 
         if not session:
