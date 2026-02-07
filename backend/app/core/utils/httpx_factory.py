@@ -7,18 +7,14 @@ from http import HTTPStatus
 from httpx import AsyncClient, Limits, Timeout
 from httpx_retries import Retry, RetryTransport
 
+from app.core.settings import HttpxConfig
 
-def create_async_client(
-    *,
-    timeout: float = 10.0,
-    max_connections: int = 100,
-    max_keepalive: int = 20,
-    retries: int = 3,
-    backoff_factor: float = 0.2,
-) -> AsyncClient:
+
+def create_async_client(config: HttpxConfig) -> AsyncClient:
+    """Create an HTTPX AsyncClient with retry transport."""
     retry = Retry(
-        total=retries,
-        backoff_factor=backoff_factor,
+        total=config.retries,
+        backoff_factor=config.backoff_factor,
         status_forcelist=[
             HTTPStatus.TOO_MANY_REQUESTS,
             HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -28,9 +24,13 @@ def create_async_client(
         ],
     )
     transport = RetryTransport(retry=retry)
-    limits = Limits(max_connections=max_connections, max_keepalive_connections=max_keepalive)
+    limits = Limits(
+        max_connections=config.max_connections,
+        max_keepalive_connections=config.max_keepalive,
+    )
+    timeout = Timeout(config.timeout_seconds)
     return AsyncClient(
-        timeout=Timeout(timeout),
-        limits=limits,
         transport=transport,
+        limits=limits,
+        timeout=timeout,
     )

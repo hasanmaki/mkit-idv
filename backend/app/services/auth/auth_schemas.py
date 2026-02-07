@@ -115,3 +115,18 @@ class AdminRevokeUserSessionsInput(BaseModel):
     """Schema for admin revoke all sessions of a user."""
 
     user_id: int = Field(..., description="User ID")
+
+
+class CurrentUserResponse(BaseModel):
+    """Schema for current user response."""
+
+    id: int
+    name: str
+    username: str
+    email: str
+    is_admin: bool
+    is_active: bool
+
+    model_config = {
+        "from_attributes": True,
+    }

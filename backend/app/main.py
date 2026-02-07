@@ -22,7 +22,7 @@ async def lifespan_app(app: FastAPI):  # noqa: ARG001, RUF029
         app (FastAPI): The FastAPI application instance.
     """
     logger.info("Starting application lifespan...")
-    app.state.httpx = create_async_client()
+    app.state.httpx = create_async_client(settings.httpx)
     yield
     await app.state.httpx.aclose()
     logger.info("Ending application lifespan...")
