@@ -3,36 +3,20 @@
 """User management endpoints (admin only)."""
 
 from fastapi import APIRouter, Depends, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
-from app.api.deps import require_admin
-from app.repositories import UserRepository
+from app.api.deps import (
+    require_admin,
+    get_user_management_service,
+    get_password_service,
+)
 from app.services.auth.auth_schemas import (
     CreateUserRequest,
     ResetPasswordRequest,
     UpdateUserRequest,
     UserResponse,
 )
-from app.services.password import PasswordService
-from app.services.user_management import UserManagementService
 
 router = APIRouter(prefix="/admin/users", tags=["Admin - Users"])
-limiter = Limiter(key_func=get_remote_address)
-
-
-def get_user_management_service(
-    user_repo: UserRepository = Depends(get_user_repo),
-) -> UserManagementService:
-    """Dependency for UserManagementService."""
-    return UserManagementService(user_repo)
-
-
-def get_password_service(
-    user_repo: UserRepository = Depends(get_user_repo),
-) -> PasswordService:
-    """Dependency for PasswordService."""
-    return PasswordService(user_repo)
 
 
 @router.post(

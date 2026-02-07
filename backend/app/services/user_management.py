@@ -6,27 +6,14 @@ This module provides user management operations for administrators including
 creating users, listing users, updating user information, and deactivating users.
 """
 
-from datetime import UTC, datetime
-
 from app.models.users import User
 from app.repositories import UserRepository
-from app.services.auth.auth_errors import (
-    UserAlreadyExistsError,
-    UserInactiveError,
-    UserNotFoundError,
-)
 from app.services.auth.auth_schemas import (
-    ChangePasswordRequest,
     CreateUserRequest,
     UpdateUserRequest,
-    UserPublic,
     UserResponse,
 )
-from app.core.utils.hashing import hash_password, verify_password
-
-
-class UserAlreadyExistsError(Exception):
-    """Raised when trying to create a user that already exists."""
+from app.core.utils.hashing import hash_password
 
 
 class UserManagementService:
