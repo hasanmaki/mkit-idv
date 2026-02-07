@@ -1,0 +1,51 @@
+project isatidv {
+    note: "This is the database schmeas , and we use aiosqlite for now while a possible migration to Postgres is planned."
+}
+
+table users {
+    id integer [pk, increment]
+    username text [unique, not null]
+    email text [unique, not null]
+    hashed_password text [not null]
+    is_admin boolean [default: false, not null]
+    is_active boolean [default: true, not null]
+    created_at timestamp [default: `CURRENT_TIMESTAMP`, not null]
+    updated_at timestamp [default: `CURRENT_TIMESTAMP`, not null]
+}
+
+table sessions {
+    id integer [pk, increment]
+    user_id integer [not null, ref: > users.id]
+    session_id text [unique, not null]
+    refresh_token_hash text [not null]
+    is_revoked boolean [default: false, not null]
+    revoked_at timestamp [null]
+    expires_at timestamp [not null]
+    last_activity_at timestamp [null]
+    ip_address text [null]
+    user_agent text [null]
+    created_at timestamp [default: `CURRENT_TIMESTAMP`, not null]
+    updated_at timestamp [default: `CURRENT_TIMESTAMP`, not null]
+}
+
+table customers {
+    id integer [pk, increment]
+    name text [not null]
+    email text [unique, not null]
+    phone text [null]
+    telegram_id integer [unique, null]
+    created_at timestamp [default: `CURRENT_TIMESTAMP`, not null]
+    updated_at timestamp [default: `CURRENT_TIMESTAMP`, not null]
+    notes text [null]
+}
+
+table accounts {
+    id integer [pk, increment]
+    customer_id integer [not null, ref: > customers.id]
+    msisdn varchar(15) [unique, not null]
+    pin varchar(10) [not null]
+    email text [null]
+    is_active boolean [default: true, not null]
+    is_logged_in boolean [default: false, not null]
+
+}

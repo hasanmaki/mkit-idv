@@ -44,11 +44,13 @@ This phase focuses on establishing a solid foundation by improving code quality,
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/repositories/base.py
 ```
 
 **Modified Files:**
+
 ```
 app/repositories/users_repositories.py
 app/repositories/sessions_repo.py
@@ -116,6 +118,7 @@ class BaseRepository:
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/services/base.py
 app/core/utils/time_provider.py
@@ -124,6 +127,7 @@ app/core/decorators/validation.py
 ```
 
 **Modified Files:**
+
 ```
 app/services/auth/auth_services.py
 app/services/sessions/session_services.py
@@ -195,12 +199,14 @@ Result = Success[T] | Failure
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/api/containers.py
 app/api/factories.py
 ```
 
 **Modified Files:**
+
 ```
 app/api/deps.py
 app/main.py
@@ -257,6 +263,7 @@ class ServiceContainer:
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/core/config/auth.py
 app/core/config/security.py
@@ -266,6 +273,7 @@ app/core/config/cache.py
 ```
 
 **Modified Files:**
+
 ```
 app/core/settings.py
 ```
@@ -331,6 +339,7 @@ class FeatureFlags(BaseSettings):
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 docs/architecture.md
 docs/auth_flow.md
@@ -339,6 +348,7 @@ docs/contributing.md
 ```
 
 **Modified Files:**
+
 - All files with TODO comments (approx. 15-20 files)
 
 #### Documentation Structure
@@ -418,12 +428,14 @@ This phase focuses on hardening the authentication system against common securit
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/core/security/rate_limiter.py
 app/core/security/middleware.py
 ```
 
 **Modified Files:**
+
 ```
 app/core/config/security.py
 app/api/v1/auth.py
@@ -492,12 +504,14 @@ api_requests_per_minute: int = 60
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/services/auth/account_lockout.py
 app/api/v1/admin/users.py
 ```
 
 **Modified Files:**
+
 ```
 app/models/users.py (add fields)
 app/repositories/users_repositories.py (add methods)
@@ -561,6 +575,7 @@ async def handle_failed_login(user: User):
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/core/security/password_validator.py
 app/api/v1/users/password.py
@@ -568,6 +583,7 @@ app/schemas/user.py (password-related schemas)
 ```
 
 **Modified Files:**
+
 ```
 app/models/users.py (add fields)
 app/core/config/security.py (add password policies)
@@ -698,6 +714,7 @@ password_expiration_days: int = 90
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/core/security/fingerprint.py
 app/services/sessions/session_security.py
@@ -705,6 +722,7 @@ app/api/v1/users/sessions.py
 ```
 
 **Modified Files:**
+
 ```
 app/models/sessions.py (add fields)
 app/services/sessions/session_services.py
@@ -797,12 +815,14 @@ auto_revoke_on_fingerprint_change: bool = False
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/core/middleware/security_headers.py
 app/core/middleware/csrf.py
 ```
 
 **Modified Files:**
+
 ```
 app/core/config/security.py (add CSP config)
 app/main.py (add middleware)
@@ -938,6 +958,7 @@ This phase focuses on adding essential authentication features to make the syste
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/services/auth/password_reset.py
 app/api/v1/auth/password_reset.py
@@ -947,6 +968,7 @@ app/templates/email/password_reset_success.html
 ```
 
 **Modified Files:**
+
 ```
 app/models/users.py (add fields)
 app/services/email/email_service.py
@@ -1078,6 +1100,7 @@ async def reset_password(
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/services/auth/email_verification.py
 app/api/v1/auth/verification.py
@@ -1087,6 +1110,7 @@ app/templates/email/verification_reminder.html
 ```
 
 **Modified Files:**
+
 ```
 app/models/users.py (add fields)
 app/services/email/email_service.py
@@ -1194,6 +1218,7 @@ async def resend_verification(
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/services/auth/registration.py
 app/api/v1/auth/register.py
@@ -1202,6 +1227,7 @@ app/templates/email/welcome.html
 ```
 
 **Modified Files:**
+
 ```
 app/models/users.py (add profile fields)
 app/services/email/email_service.py
@@ -1313,6 +1339,7 @@ async def register(
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/services/oauth/oauth_service.py
 app/api/v1/auth/oauth.py
@@ -1322,6 +1349,7 @@ app/schemas/oauth.py
 ```
 
 **Modified Files:**
+
 ```
 app/models/users.py
 pyproject.toml (add authlib or similar)
@@ -1472,6 +1500,7 @@ async def oauth_callback(
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/services/auth/2fa.py
 app/api/v1/auth/2fa.py
@@ -1480,6 +1509,7 @@ app/core/utils/otp.py
 ```
 
 **Modified Files:**
+
 ```
 app/models/users.py (add 2fa fields)
 pyproject.toml (add pyotp)
@@ -1689,6 +1719,7 @@ This phase focuses on optimizing performance and preparing the system for high t
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/core/cache/cache_manager.py
 app/core/cache/decorators.py
@@ -1697,6 +1728,7 @@ app/core/cache/config.py
 ```
 
 **Modified Files:**
+
 ```
 app/repositories/base.py (add caching)
 app/services/auth/auth_services.py (add cache invalidation)
@@ -1850,6 +1882,7 @@ class CachedUserRepository(BaseRepository[User]):
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 alembic/versions/xxx_add_indexes.py (migration)
 app/database/pagination.py
@@ -1857,6 +1890,7 @@ app/database/metrics.py
 ```
 
 **Modified Files:**
+
 ```
 app/repositories/base.py (add pagination)
 app/database/session.py (optimize pool settings)
@@ -1993,6 +2027,7 @@ class PoolConfig(BaseSettings):
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/workers/cleanup.py
 app/workers/email.py
@@ -2004,6 +2039,7 @@ app/core/config/queue.py
 ```
 
 **Modified Files:**
+
 ```
 app/services/email/email_service.py
 app/main.py (add worker startup)
@@ -2130,6 +2166,7 @@ def monitored_task():
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 app/core/metrics/prometheus.py
 app/core/middleware/metrics.py
@@ -2141,6 +2178,7 @@ monitoring/alerts/alert_rules.yaml
 ```
 
 **Modified Files:**
+
 ```
 app/services/auth/auth_services.py (add metrics)
 app/main.py (add metrics endpoint)
@@ -2336,6 +2374,7 @@ groups:
 #### Files to Create/Modify
 
 **New Files:**
+
 ```
 docs/scaling.md
 docs/deployment.md
@@ -2344,6 +2383,7 @@ scripts/scale_down.sh
 ```
 
 **Modified Files:**
+
 ```
 app/database/session.py (optimize pool)
 app/core/utils/httpx_factory.py (add pooling)
@@ -2524,18 +2564,21 @@ Phase 4 (Performance)
 ### Parallel Execution Options
 
 **Option 1: Sequential (Recommended)**
+
 ```
 Phase 1 → Phase 2 → Phase 3 → Phase 4
 Total: 12-16 days
 ```
 
 **Option 2: Parallel Phase 3 & 4**
+
 ```
 Phase 1 → Phase 2 → (Phase 3 + Phase 4)
 Total: 10-13 days
 ```
 
 **Option 3: Fast Track (Feature Flags)**
+
 ```
 Phase 1 → Phase 2 → Phase 3 (critical features only) → Phase 4
 Phase 3 (optional features) can be done later
@@ -2548,8 +2591,10 @@ Phase 3 (optional features) can be done later
 ### High Risk Areas
 
 #### 1. Database Migrations
+
 **Risk:** Breaking changes, data loss
 **Mitigation:**
+
 - Test migrations in staging environment first
 - Create rollback scripts for all migrations
 - Backup database before production migration
@@ -2557,8 +2602,10 @@ Phase 3 (optional features) can be done later
 - Run migrations during low-traffic periods
 
 #### 2. Caching Invalidation
+
 **Risk:** Stale data, inconsistent state
 **Mitigation:**
+
 - Start with conservative TTLs (5 minutes)
 - Implement cache versioning
 - Add cache warming strategies
@@ -2567,8 +2614,10 @@ Phase 3 (optional features) can be done later
 - Add alerts for low cache hit rates
 
 #### 3. Background Jobs
+
 **Risk:** Failed jobs, lost tasks
 **Mitigation:**
+
 - Add monitoring and alerts for failed jobs
 - Implement retry logic with exponential backoff
 - Use persistent job queues
@@ -2577,8 +2626,10 @@ Phase 3 (optional features) can be done later
 - Add circuit breakers for dependent services
 
 #### 4. OAuth Integration
+
 **Risk:** Security vulnerabilities, token leaks
 **Mitigation:**
+
 - Implement in feature branch first
 - Security review before merge
 - Use well-tested libraries (authlib)
@@ -2589,6 +2640,7 @@ Phase 3 (optional features) can be done later
 ### Rollback Plan
 
 #### Database Rollback
+
 ```bash
 # Rollback migration
 alembic downgrade -1
@@ -2598,6 +2650,7 @@ alembic downgrade <revision>
 ```
 
 #### Feature Flags
+
 ```python
 # Disable new features via environment variables
 FEATURE_RATE_LIMITING=false
@@ -2606,6 +2659,7 @@ FEATURE_PASSWORD_RESET=false
 ```
 
 #### Configuration Rollback
+
 ```python
 # Use old configuration values
 # Keep old code paths commented out
@@ -2615,21 +2669,25 @@ FEATURE_PASSWORD_RESET=false
 ### Testing Strategy
 
 #### Unit Tests
+
 - Cover all new functionality
 - Mock external dependencies
 - Test edge cases
 
 #### Integration Tests
+
 - Test component interactions
 - Test with real database
 - Test cache layer
 
 #### End-to-End Tests
+
 - Test complete user journeys
 - Test with staging environment
 - Load testing
 
 #### Security Tests
+
 - OWASP ZAP scan
 - SQL injection tests
 - XSS tests
@@ -2670,18 +2728,21 @@ FEATURE_PASSWORD_RESET=false
 ### Business Impact
 
 **User Experience:**
+
 - Faster page loads
 - Fewer errors
 - Better security
 - More features
 
 **Operational:**
+
 - Better observability
 - Easier debugging
 - Improved reliability
 - Faster incident response
 
 **Development:**
+
 - Easier to add features
 - Better code quality
 - Faster development
@@ -2789,20 +2850,24 @@ backend/
 ### B. Recommended Tools & Libraries
 
 **Phase 1:**
+
 - pydantic-settings (already used)
 - dependency-injector (optional)
 
 **Phase 2:**
+
 - slowapi or fastapi-limiter (rate limiting)
 - pyotp (2FA)
 - user-agents (fingerprinting)
 
 **Phase 3:**
+
 - authlib (OAuth)
 - pyotp (2FA)
 - jinja2 (email templates)
 
 **Phase 4:**
+
 - redis (caching)
 - dramatiq (background jobs)
 - prometheus-client (metrics)

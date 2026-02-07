@@ -18,6 +18,8 @@ from app.services.auth.auth_services import AuthService
 from app.services.jwt import JwtService
 from app.services.jwt.jwt_errors import JwtError
 from app.services.sessions.session_services import SessionService
+from app.services.user_management import UserManagementService
+from app.services.password import PasswordService
 
 
 @lru_cache
@@ -98,7 +100,9 @@ async def get_current_user(
 
     user = await user_repo.get_by_id(session.user_id)
     if user is None or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
+        )
 
     return user
 
@@ -107,3 +111,17 @@ async def require_admin(user=Depends(get_current_user)):
     if not user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return user
+
+
+def get_user_management_service(
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> UserManagementService:
+    """Dependency for UserManagementService."""
+    return UserManagementService(user_repo)
+
+
+def get_password_service(
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> PasswordService:
+    """Dependency for PasswordService."""
+    return PasswordService(user_repo)

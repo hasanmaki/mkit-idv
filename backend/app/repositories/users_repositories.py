@@ -86,6 +86,26 @@ class UserRepository:
         await self.db.commit()
         await self.db.refresh(user)
 
+    async def list_users(
+        self, skip: int = 0, limit: int = 100, include_inactive: bool = False
+    ) -> list[User]:
+        """List users with pagination.
+
+        Args:
+            skip (int): Number of users to skip (for pagination).
+            limit (int): Maximum number of users to return.
+            include_inactive (bool): Whether to include inactive users.
+
+        Returns:
+            list[User]: List of user entities.
+        """
+        stmt = select(User)
+        if not include_inactive:
+            stmt = stmt.where(User.is_active == True)
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
     async def save(self) -> None:
         """Save changes to the database."""
         await self.db.commit()

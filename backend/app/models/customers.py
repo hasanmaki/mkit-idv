@@ -29,7 +29,8 @@ class Customer(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     phone: Mapped[str] = mapped_column(String(15), unique=True, nullable=True)
-    telegram_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=True)
+    telegram_id: Mapped[int] = mapped_column(nullable=True, unique=True)
+    notes: Mapped[str] = mapped_column(String(255), nullable=True)
 
     def __repr__(self) -> str:
         """Return a string representation of the Customer."""

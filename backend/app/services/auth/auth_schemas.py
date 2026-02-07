@@ -115,3 +115,114 @@ class CurrentUserResponse(BaseModel):
     model_config = {
         "from_attributes": True,
     }
+
+
+class CreateUserRequest(BaseModel):
+    """Schema for creating a new user (admin only)."""
+
+    username: str = Field(..., min_length=3, max_length=50, description="Username")
+    email: str = Field(..., description="Email address")
+    name: str = Field(..., description="Full name")
+    password: str = Field(
+        ..., min_length=12, description="Password (min 12 characters)"
+    )
+    is_admin: bool = Field(default=False, description="Admin privileges")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "username": "john_doe",
+                    "email": "john@example.com",
+                    "name": "John Doe",
+                    "password": "SecurePassword123!",
+                    "is_admin": False,
+                }
+            ]
+        }
+    }
+
+
+class UpdateUserRequest(BaseModel):
+    """Schema for updating user information (admin only)."""
+
+    name: str | None = Field(None, description="Full name")
+    email: str | None = Field(None, description="Email address")
+    is_admin: bool | None = Field(None, description="Admin privileges")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "name": "John Smith",
+                    "email": "john.smith@example.com",
+                    "is_admin": True,
+                }
+            ]
+        }
+    }
+
+
+class UserResponse(BaseModel):
+    """Schema for user response."""
+
+    id: int
+    username: str
+    email: str
+    name: str
+    is_admin: bool
+    is_active: bool
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class UserPublic(BaseModel):
+    """Schema for public user information."""
+
+    id: int
+    username: str
+    name: str
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class ChangePasswordRequest(BaseModel):
+    """Schema for user password change."""
+
+    current_password: str = Field(..., description="Current password")
+    new_password: str = Field(
+        ..., min_length=12, description="New password (min 12 characters)"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "current_password": "OldPassword123!",
+                    "new_password": "NewSecurePassword456!",
+                }
+            ]
+        }
+    }
+
+
+class ResetPasswordRequest(BaseModel):
+    """Schema for admin password reset."""
+
+    new_password: str = Field(
+        ..., min_length=12, description="New password (min 12 characters)"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "new_password": "AdminResetPassword123!",
+                }
+            ]
+        }
+    }
