@@ -1,15 +1,68 @@
-from pydantic import BaseModel
+# Copyright (c) 2026 okedigitalmedia/hasanmaki. All rights reserved.
+"""Main FastAPI Application.
+
+This module initializes the FastAPI application and sets up the logger.
+"""
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
+
+from app.api import include_api_routers
+from app.core.exceptions import register_exception_handlers
+from app.core.settings import get_app_settings
+
+settings = get_app_settings()
 
 
-def main():
-    print("Hello from backend!")
+@asynccontextmanager
+async def lifespan_app(app: FastAPI):  # noqa: RUF029
+    """Lifespan context manager for FastAPI application.
+
+    Args:
+        app (FastAPI): The FastAPI application instance.
+    """
+    logger.info("Starting application lifespan...")
+    yield
+    logger.info("Ending application lifespan...")
 
 
+def create_app() -> FastAPI:
+    """Create and configure the FastAPI application.
+
+    Returns:
+        FastAPI: Configured FastAPI application instance.
+    """
+    app = FastAPI(
+        title=settings.app_name,
+        version=settings.app_version,
+        debug=settings.debug,
+        lifespan=lifespan_app,
+    )
+
+    # CORS configuration
+
+    app.add_middleware(
+        middleware_class=CORSMiddleware,
+        allow_origins=settings.cors.allow_origins,
+        allow_methods=settings.cors.allow_methods,
+        allow_headers=settings.cors.allow_headers,
+        allow_credentials=settings.cors.allow_credentials,
+    )
+
+    # Register exception handlers
+    register_exception_handlers(app)
+
+    # Include API routers
+    include_api_routers(app)
+
+    return app
+
+
+app = create_app()
 if __name__ == "__main__":
-    main()
+    import uvicorn
 
-
-class User(BaseModel):
-    id: int
-    name: str
-    email: str
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

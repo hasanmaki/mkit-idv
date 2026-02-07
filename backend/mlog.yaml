@@ -1,0 +1,32 @@
+handlers:
+  - sink: ext://sys.stdout
+    format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> -> <level>{message}</level><yellow>(context: {extra[context]})</yellow>"
+    enqueue: false
+    diagnose: true
+    backtrace: true
+    colorize: true
+    level: DEBUG
+  - sink: "./logs/info.log"
+    format: "{time:YYYY-MM-DD HH:mm:ss}<level>{level:}</level>.{name:}.{function:}.{line:}.{message}"
+    level: INFO
+    colorize: false
+    serialize: true
+    rotation:
+      when: midnight
+      interval: 1
+      retention: 7 days
+  - sink: "./logs/error.log"
+    format: "{time:YYYY-MM-DD HH:mm:ss}<level>{level:}</level>.{name:}.{function:}.{line:}.{message}"
+    level: ERROR
+    colorize: false
+    serialize: true
+
+extra:
+  context: "mkit"
+
+activation:
+  - ["httpx_retries", false]
+  - ["httpcore", true]
+  - ["httpx", false]
+  - ["uvicorn", false]
+  - ["aiosqlite", false]
