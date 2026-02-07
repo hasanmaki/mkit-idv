@@ -25,3 +25,7 @@ class User(Base, TimestampMixin):
     hashed_password: Mapped[str] = mapped_column(nullable=False)
     is_admin: Mapped[bool] = mapped_column(default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+
+    def __repr__(self) -> str:
+        """Return a string representation of the User."""
+        return f"<User id={self.id} username={self.username} email={self.email}>"

@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from http import HTTPStatus
 
+from app.core.settings import HttpxConfig
 from httpx import AsyncClient, Limits, Timeout
 from httpx_retries import Retry, RetryTransport
-
-from app.core.settings import HttpxConfig
 
 
 def create_async_client(config: HttpxConfig) -> AsyncClient:
