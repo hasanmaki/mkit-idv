@@ -7,13 +7,12 @@ from __future__ import annotations
 from functools import lru_cache
 
 from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import JwtConfig, get_app_settings
 from app.core.utils.hashing import get_password_hasher as _get_password_hasher
-from app.database.session import get_db_session
+from app.core.utils.tokens import extract_bearer_token
 from app.repositories import SessionRepository, UserRepository
 from app.services.auth.auth_services import AuthService
 from app.services.jwt import JwtService
@@ -33,14 +32,21 @@ def get_password_hasher():
     return _get_password_hasher()
 
 
+async def get_db_session_dep() -> AsyncSession:
+    from app.database.session import get_db_session
+
+    async for session in get_db_session():
+        yield session
+
+
 def get_session_repo(
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_db_session_dep),
 ) -> SessionRepository:
     return SessionRepository(db)
 
 
 def get_user_repo(
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_db_session_dep),
 ) -> UserRepository:
     return UserRepository(db)
 
@@ -72,19 +78,17 @@ def get_httpx_client(request: Request) -> AsyncClient:
     return client
 
 
-_bearer_scheme = HTTPBearer(auto_error=False)
-
-
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+    request: Request,
     jwt_service: JwtService = Depends(get_jwt_service),
     session_service: SessionService = Depends(get_session_service),
     user_repo: UserRepository = Depends(get_user_repo),
 ):
-    if credentials is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-
-    token = credentials.credentials
+    token = extract_bearer_token(request.headers.get("authorization"))
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token"
+        )
     payload = jwt_service.verify_access_token(token)
     session = await session_service.validate_session(payload.session_id)
 

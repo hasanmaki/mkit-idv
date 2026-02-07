@@ -99,7 +99,7 @@ class DatabaseSessionManager:
             await session.close()
 
 
-sessionmanager = DatabaseSessionManager(get_app_settings().db)
+sessionmanager = DatabaseSessionManager(get_app_settings().db.db_url)
 # singleton instance
 
 
