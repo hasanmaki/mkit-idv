@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 from pathlib import Path
 
 from loguru import logger
@@ -17,6 +16,7 @@ class InterceptHandler(logging.Handler):
     """Redirect standard logging records to Loguru."""
 
     def emit(self, record: logging.LogRecord) -> None:
+        """Emit a logging record."""
         try:
             level = logger.level(record.levelname).name
         except ValueError:
