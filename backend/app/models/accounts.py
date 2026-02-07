@@ -4,17 +4,5 @@
 
 ACCOUNTS Is A usernames of indosat ooredoo users. they area in msisdn with pin , passsword and email.
 
-Key Features:
-    - First key feature
-    - Second key feature
 
-Attributes:
-    - Second key feature
-    - Second key feature
-
-Example:
-    from module import something
-
-Note:
-    - Important constraints or considerations
 """
