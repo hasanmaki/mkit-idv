@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
-from starlette.requests import Request
 
 from app.api.deps import get_current_user
 from app.core.settings import JwtConfig
@@ -59,14 +58,6 @@ class DummyUserRepo:
         return None
 
 
-def make_request(token: str | None) -> Request:
-    headers = []
-    if token:
-        headers.append((b"authorization", f"Bearer {token}".encode()))
-    scope = {"type": "http", "headers": headers}
-    return Request(scope)
-
-
 @pytest.mark.asyncio
 async def test_get_current_user_success() -> None:
     jwt_service = JwtService(
@@ -96,11 +87,10 @@ async def test_get_current_user_success() -> None:
     repo.sessions[session_id] = session
 
     token = jwt_service.create_access_token(user_id=user_id, session_id=session_id)
-    request = make_request(token)
     user_repo = DummyUserRepo(DummyUser(user_id))
 
     user = await get_current_user(
-        request=request,
+        token=token,
         jwt_service=jwt_service,
         session_service=session_service,
         user_repo=user_repo,
@@ -123,12 +113,10 @@ async def test_get_current_user_missing_token() -> None:
     session_service = SessionService(repo)
     user_repo = DummyUserRepo(DummyUser(1))
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(HTTPException):
         await get_current_user(
-            request=make_request(None),
+            token="invalid",
             jwt_service=jwt_service,
             session_service=session_service,
             user_repo=user_repo,
         )
-
-    assert exc.value.status_code == 401

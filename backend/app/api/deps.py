@@ -7,12 +7,12 @@ from __future__ import annotations
 from functools import lru_cache
 
 from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordBearer
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import JwtConfig, get_app_settings
 from app.core.utils.hashing import get_password_hasher as _get_password_hasher
-from app.core.utils.tokens import extract_bearer_token
 from app.repositories import SessionRepository, UserRepository
 from app.services.auth.auth_services import AuthService
 from app.services.jwt import JwtService
@@ -78,17 +78,15 @@ def get_httpx_client(request: Request) -> AsyncClient:
     return client
 
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+
 async def get_current_user(
-    request: Request,
+    token: str = Depends(oauth2_scheme),
     jwt_service: JwtService = Depends(get_jwt_service),
     session_service: SessionService = Depends(get_session_service),
     user_repo: UserRepository = Depends(get_user_repo),
 ):
-    token = extract_bearer_token(request.headers.get("authorization"))
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token"
-        )
     payload = jwt_service.verify_access_token(token)
     session = await session_service.validate_session(payload.session_id)
 

@@ -33,6 +33,18 @@ class CorsConfig(BaseSettings):
     allow_headers: list[str] = ["*"]
     allow_credentials: bool = True
 
+class HttpxConfig(BaseSettings):
+    """HTTPX client configuration settings."""
+
+    model_config = {"env_prefix": "HTTPX_"}
+
+    timeout_seconds: float = 10.0
+    max_connections: int = 100
+    max_keepalive: int = 20
+    retries: int = 3
+    backoff_factor: float = 0.2
+
+
 
 class JwtConfig(BaseSettings):
     """JWT configuration settings."""
@@ -64,18 +76,6 @@ class DatabaseConfig(BaseSettings):
     model_config = {"env_prefix": "DB_"}
 
     db_url: str = "sqlite+aiosqlite:///./application.db"
-
-
-class HttpxConfig(BaseSettings):
-    """HTTPX client configuration settings."""
-
-    model_config = {"env_prefix": "HTTPX_"}
-
-    timeout_seconds: float = 10.0
-    max_connections: int = 100
-    max_keepalive: int = 20
-    retries: int = 3
-    backoff_factor: float = 0.2
 
 
 class AppSettings(BaseSettings):
