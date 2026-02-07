@@ -19,7 +19,7 @@ Note:
 
 from functools import lru_cache
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings
 
 
@@ -73,8 +73,8 @@ class AppSettings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = False
     db: str = DatabaseConfig().db_url
-    cors: CorsConfig = CorsConfig()
-    jwt: JwtConfig = JwtConfig()
+    cors: CorsConfig = Field(default_factory=CorsConfig)
+    jwt: JwtConfig = Field(default_factory=JwtConfig)
 
     model_config = {
         "env_file": ".env",
