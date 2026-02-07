@@ -1,0 +1,238 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+dependencies = [
+    "fastapi>=0.128.3",
+    "loguru>=0.7.3",
+    "pwdlib[argon2]>=0.3.0",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "pyjwt>=2.11.0",
+    "python-multipart>=0.0.22",
+    "sqlalchemy>=2.0.46",
+    "uvicorn>=0.40.0",
+]
+
+authors = [
+    { name = "Hasan Maki", email = "hasanmaki.ahmad@gmail.com" }
+    ]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+]
+readme = "README.md"
+requires-python = ">=3.13"
+
+[dependency-groups]
+dev = [
+    "faker>=40.4.0",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.0.0",
+    "pytest-html>=4.1.1",
+    "pytest-mock>=3.15.1",
+    "pytest-sugar>=1.1.1",
+    "pytest-xdist[psutil]>=3.8.0",
+    "responses>=0.25.8",
+]
+
+
+[tool.ruff]
+builtins = ["_"]
+fix = true
+show-fixes = true
+src = ["app", "tests"]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "D",   # pydocstyle (docstrings)
+    "ANN", # flake8-annotations (type hints)
+    "UP",  # pyupgrade (modern Python syntax)
+    "B",   # flake8-bugbear (common bugs)
+    "SIM", # flake8-simplify (simplify code)
+    "C90", # flake8-comprehensions (comprehension optimizations)
+    "T20", # flake8-type-checking (type checking)
+    "TRY", # flake8-try-except (try-except optimizations)
+    "RUF",  # ruff (general code quality)
+    "PERF", # ruff performance checks
+    "ARG",  # ruff argument checks
+    "PLC",  # ruff plugin checks
+    "N",   # ruff naming conventions
+]
+ignore = [
+    "E501",    # panjang baris
+    "D107",    # docstring __init__
+    "D105",    # docstring magic method
+    "ANN201",  # `cls`
+    "ANN202",  # `self`
+    "ANN401",  # Any
+    "ANN204",  # __init__ return
+    "ANN002",  # *args
+    "ANN003",  # **kwargs
+    "B008", # unused variable
+    "TRY003",  # try-except optimizations
+    "TRY400",  # too broad exception
+]
+
+[tool.ruff.lint.flake8-copyright]
+author = "Hasan Maki"
+notice-rgx = "(?i)Copyright \\([Cc]\\) \\d{4}"
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "D",      # Docstring rules
+    "ANN",    # Type annotation rules
+    "S101",   # Use of assert - legitimate in tests
+    "PLR2004" # Magic value used in comparison
+]
+"scripts/*" = ["ALL"]
+"__init__.py" = ["ALL"]
+"alembic/*" = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+docstring-code-line-length = 60
+skip-magic-trailing-comma = false
+
+[tool.pyright]
+include = ["app","tests"]
+ignore = ["**/typings"]
+exclude = [
+    ".*",
+    "__*",
+    "**/typings",
+    "**/migrations",
+    "**/venv",
+    "**/.venv",
+    "**/.env",
+    "**/.vscode",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/*.egg-info",
+    "**/dist",
+    "**/*.pyi",
+    "${python.envPath}/Lib/",
+    "workspaceFolder/Lib/",
+    "**/Lib/",
+    "**/lib/",
+    ]
+
+typeCheckingMode = "standard"
+stubPath = "typings"
+typeshedPath = "typings"
+pythonPlatform = "Windows"
+pythonVersion = "3.13"
+reportMissingImports = "error"
+reportMissingModuleSource = "none"
+reportUnnecessaryTypeIgnoreComment = "information"
+
+[tool.coverage.run]
+source = ["app","tests"]
+branch = true
+parallel = true
+data_file = ".reports/coverage/.coverage"
+omit = [
+    "*/tests/__init__.py*",
+    "*/scripts/*",
+    "*/__init__.py",
+    "*/site-packages/*",
+    "*/.venv/*",
+    "*/shibokensupport/*",
+    "*/pyscript/*",
+    "*/signature_bootstrap.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+skip_covered = false
+skip_empty = true
+
+[tool.coverage.html]
+directory = ".reports/coverage/html"
+skip_covered = false
+skip_empty = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+pythonpath = ["app", "."]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--disable-warnings",
+    "--cov=app",
+    "--cov-report=html:.reports/coverage",
+    "--cov-report=term-missing:skip-covered",
+    "--html=.reports/tests/report.html",
+    "--self-contained-html",
+    "-ra",
+    "--color=yes",
+]
+markers = [
+    "slow: mark test as slow to run",
+    "integration: mark test as integration test",
+    "unit: mark test as unit test",
+    "performance: mark test as performance test",
+    "regression: mark test as regression test",
+    "smoke: mark test as smoke test",
+    "ui: mark test as UI test",
+    "api: mark test as API test",
+    "database: mark test as database-related",
+    "e2e: mark end to end testing",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning"
+]
+asyncio_mode = "auto"
+
+
+[tool.alembic]
+
+
+script_location = "%(here)s/alembic"
+
+
+# additional paths to be prepended to sys.path. defaults to the current working directory.
+prepend_sys_path = [
+    "."
+]
+# [[tool.alembic.post_write_hooks]]
+# lint with attempts to fix using "ruff" - use the module runner, against the "ruff" module
+# name = "ruff"
+# type = "module"
+# module = "ruff"
+# options = "check --fix REVISION_SCRIPT_FILENAME"
+#
+[[tool.alembic.post_write_hooks]]
+# Alternatively, use the exec runner to execute a binary found on your PATH
+name = "ruff"
+type = "exec"
+executable = "ruff"
+options = "check --fix REVISION_SCRIPT_FILENAME"
