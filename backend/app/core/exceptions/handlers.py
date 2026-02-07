@@ -1,3 +1,4 @@
+# ruff: noqa
 """Exception handlers for FastAPI application."""
 
 from datetime import UTC, datetime
@@ -28,7 +29,7 @@ def _build_response(payload: dict, status_code: int, trace_id: str) -> JSONRespo
     return response
 
 
-def make_app_base_exception_handler(logger_):
+def make_app_base_exception_handler(logger_):  # noqa: D103
     async def handler(request: Request, exc: Exception) -> JSONResponse:  # noqa: RUF029
         """Handle AppBaseExceptionError and return JSON response."""
         assert isinstance(exc, AppBaseExceptionError)
@@ -68,7 +69,9 @@ def make_http_exception_handler(logger_):
             detail=exc.detail,
             path=request.url.path,
         )
-        message = exc.detail if isinstance(exc.detail, str) else "Permintaan tidak valid."
+        message = (
+            exc.detail if isinstance(exc.detail, str) else "Permintaan tidak valid."
+        )
         payload = {
             "success": False,
             "error": "HTTPException",

@@ -1,25 +1,29 @@
 handlers:
   - sink: ext://sys.stdout
-    format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> -> <level>{message}</level><yellow>(context: {extra[context]})</yellow>"
+    format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | <level>{message}</level>"
     enqueue: false
     diagnose: true
     backtrace: true
     colorize: true
     level: DEBUG
-  - sink: "./logs/info.log"
-    format: "{time:YYYY-MM-DD HH:mm:ss}<level>{level:}</level>.{name:}.{function:}.{line:}.{message}"
+
+  - sink: "./logs/app.log"
+    format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
     level: INFO
     colorize: false
     serialize: true
-    rotation:
-      when: midnight
-      interval: 1
-      retention: 7 days
+    enqueue: true
+    rotation: "10 MB"
+    retention: "7 days"
+
   - sink: "./logs/error.log"
-    format: "{time:YYYY-MM-DD HH:mm:ss}<level>{level:}</level>.{name:}.{function:}.{line:}.{message}"
+    format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
     level: ERROR
     colorize: false
     serialize: true
+    enqueue: true
+    rotation: "10 MB"
+    retention: "7 days"
 
 extra:
   context: "mkit"

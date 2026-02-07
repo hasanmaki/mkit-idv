@@ -77,3 +77,11 @@ class AppBaseExceptionError(Exception):
             f"original_exception={self.original_exception!r}, "
             f"error_code={self.error_code!r})"
         )
+
+
+class AppNotFoundError(AppBaseExceptionError):
+    """Resource not found error."""
+
+    DEFAULT_MESSAGE = "Sumber daya tidak ditemukan."
+    DEFAULT_STATUS_CODE = 404
+    DEFAULT_CODE = "not_found"

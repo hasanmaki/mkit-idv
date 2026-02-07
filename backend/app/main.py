@@ -1,9 +1,3 @@
-# Copyright (c) 2026 okedigitalmedia/hasanmaki. All rights reserved.
-"""Main FastAPI Application.
-
-This module initializes the FastAPI application and sets up the logger.
-"""
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,14 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from app.api import include_api_routers
+from app.core import configure_logging
 from app.core.exceptions import register_exception_handlers
+from app.core.middleware.logging import RequestLoggingMiddleware
 from app.core.settings import get_app_settings
 
 settings = get_app_settings()
 
 
 @asynccontextmanager
-async def lifespan_app(app: FastAPI):  # noqa: RUF029
+async def lifespan_app(app: FastAPI):  # noqa: ARG001, RUF029
     """Lifespan context manager for FastAPI application.
 
     Args:
@@ -35,6 +31,8 @@ def create_app() -> FastAPI:
     Returns:
         FastAPI: Configured FastAPI application instance.
     """
+    configure_logging()
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
@@ -42,8 +40,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan_app,
     )
 
-    # CORS configuration
+    app.add_middleware(RequestLoggingMiddleware)
 
+    # CORS configuration
     app.add_middleware(
         middleware_class=CORSMiddleware,
         allow_origins=settings.cors.allow_origins,
@@ -65,4 +64,11 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_config=None,
+        access_log=False,
+    )

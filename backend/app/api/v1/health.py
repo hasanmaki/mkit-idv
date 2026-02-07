@@ -22,6 +22,8 @@ Note:
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
+from app.core.exceptions.base import AppNotFoundError
+
 router = APIRouter()
 
 
@@ -42,3 +44,14 @@ async def health_check():
         status_code=status.HTTP_200_OK,
         content={"status": "healthy", "message": "Application is running smoothly."},
     )
+
+
+# testing exceptions
+@router.get("/health/error", tags=["Health"])
+async def health_check_error():
+    """Endpoint to simulate an error for testing exception handling.
+
+    Raises:
+        Exception: A generic exception to test error handling.
+    """
+    raise AppNotFoundError("Simulated not found error for testing purposes.")

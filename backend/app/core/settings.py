@@ -76,7 +76,7 @@ class AppSettings(BaseSettings):
 
     app_name: str = "mkit-indosat voucher service"
     app_version: str = "0.1.0"
-    debug: bool = False
+    debug: bool = True
     db: str = DatabaseConfig().db_url
     cors: CorsConfig = CorsConfig()
     jwt: JwtConfig = JwtConfig()
