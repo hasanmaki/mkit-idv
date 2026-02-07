@@ -19,6 +19,7 @@ Note:
 
 from functools import lru_cache
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings
 
 
@@ -38,10 +39,23 @@ class JwtConfig(BaseSettings):
 
     model_config = {"env_prefix": "JWT_"}
 
-    secret_key: str = "your-secret-key"
+    # Do NOT hardcode secrets. Use SecretStr and require env in production.
+    secret_key: SecretStr | None = None
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 300  # 5 hours
     refresh_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+
+    @property
+    def secret(self) -> str:
+        """Return the raw secret string or raise if missing.
+
+        This enforces that callers actively choose what to do when secret is
+        missing (e.g. fail fast in production) instead of silently using a
+        hardcoded value.
+        """
+        if self.secret_key is None:
+            raise RuntimeError("JWT secret (JWT_SECRET_KEY) is not configured")
+        return self.secret_key.get_secret_value()
 
 
 class DatabaseConfig(BaseSettings):
