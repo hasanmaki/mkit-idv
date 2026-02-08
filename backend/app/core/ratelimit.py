@@ -5,6 +5,8 @@ from functools import lru_cache
 from typing import Protocol
 
 from fastapi import FastAPI
+from fastapi_limiter.depends import RateLimiter as FastapiRateLimiter
+from pyrate_limiter import Duration, Limiter, Rate
 
 from app.core.settings import RateLimitConfig, get_app_settings
 
@@ -28,8 +30,6 @@ class NoopRateLimiter:
 
 class FastapiLimiterRateLimiter:
     def __init__(self, config: RateLimitConfig):
-        from pyrate_limiter import Limiter
-
         self._config = config
         self._limiters: dict[str, Limiter] = {}
 
@@ -37,8 +37,6 @@ class FastapiLimiterRateLimiter:
         app.state.rate_limiter = self
 
     def dependency(self, limit_value: str) -> Callable:
-        from fastapi_limiter.depends import RateLimiter as FastapiRateLimiter
-
         limiter = self._limiters.get(limit_value)
         if limiter is None:
             limiter = self._build_limiter(limit_value)
@@ -46,15 +44,11 @@ class FastapiLimiterRateLimiter:
         return FastapiRateLimiter(limiter=limiter)
 
     def _build_limiter(self, limit_value: str):
-        from pyrate_limiter import Limiter
-
         rate = _parse_rate_limit(limit_value)
         return Limiter(rate)
 
 
 def _parse_rate_limit(limit_value: str):
-    from pyrate_limiter import Duration, Rate
-
     raw = limit_value.strip().lower()
     if "/" not in raw:
         raise ValueError(
