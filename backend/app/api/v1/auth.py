@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pwdlib import PasswordHash
 
 from app.api.deps import (
     get_auth_service,
@@ -14,6 +15,7 @@ from app.api.deps import (
     get_user_repo,
     require_admin,
 )
+from app.core.ratelimit import get_rate_limiter
 from app.repositories import UserRepository
 from app.services.auth.auth_errors import InvalidCredentialsError
 from app.services.auth.auth_schemas import (
@@ -27,9 +29,9 @@ from app.services.auth.auth_schemas import (
 from app.services.auth.auth_services import AuthService
 from app.services.sessions.session_schemas import SessionPublic
 from app.services.sessions.session_services import SessionService
-from pwdlib import PasswordHash
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+rate_limiter = get_rate_limiter()
 
 
 @router.post(
@@ -37,6 +39,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
     response_model=LoginResponse,
     status_code=status.HTTP_200_OK,
     summary="Login and issue tokens",
+    dependencies=[Depends(rate_limiter.dependency("5/minute"))],
 )
 async def login(
     request: Request,

@@ -33,6 +33,7 @@ class CorsConfig(BaseSettings):
     allow_headers: list[str] = ["*"]
     allow_credentials: bool = True
 
+
 class HttpxConfig(BaseSettings):
     """HTTPX client configuration settings."""
 
@@ -44,6 +45,17 @@ class HttpxConfig(BaseSettings):
     retries: int = 3
     backoff_factor: float = 0.2
 
+
+class RateLimitConfig(BaseSettings):
+    """Rate limiting configuration settings."""
+
+    model_config = {"env_prefix": "RATE_LIMIT_"}
+
+    enabled: bool = True
+    provider: str = "slowapi"
+    default_limits: list[str] = []
+    storage_uri: str | None = None
+    headers_enabled: bool = True
 
 
 class JwtConfig(BaseSettings):
@@ -88,6 +100,7 @@ class AppSettings(BaseSettings):
     cors: CorsConfig = Field(default_factory=CorsConfig)
     jwt: JwtConfig = Field(default_factory=JwtConfig)
     httpx: HttpxConfig = Field(default_factory=HttpxConfig)
+    rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
 
     model_config = {
         "env_file": ".env",
@@ -101,3 +114,4 @@ class AppSettings(BaseSettings):
 def get_app_settings() -> AppSettings:
     """Get cached application settings."""
     return AppSettings()
+

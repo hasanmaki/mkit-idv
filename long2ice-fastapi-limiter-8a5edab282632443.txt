@@ -1,0 +1,951 @@
+Directory structure:
+└── long2ice-fastapi-limiter/
+    ├── README.md
+    ├── conftest.py
+    ├── LICENSE
+    ├── Makefile
+    ├── pyproject.toml
+    ├── examples/
+    │   ├── main.py
+    │   └── middleware.py
+    ├── fastapi_limiter/
+    │   ├── __init__.py
+    │   ├── callback.py
+    │   ├── depends.py
+    │   ├── identifier.py
+    │   ├── middleware.py
+    │   └── py.typed
+    ├── tests/
+    │   ├── __init__.py
+    │   └── test_limiter.py
+    └── .github/
+        └── workflows/
+            ├── ci.yml
+            └── pypi.yml
+
+================================================
+FILE: README.md
+================================================
+# fastapi-limiter
+
+[![pypi](https://img.shields.io/pypi/v/fastapi-limiter.svg?style=flat)](https://pypi.python.org/pypi/fastapi-limiter)
+[![license](https://img.shields.io/github/license/long2ice/fastapi-limiter)](https://github.com/long2ice/fastapi-limiter/blob/master/LICENCE)
+[![workflows](https://github.com/long2ice/fastapi-limiter/workflows/pypi/badge.svg)](https://github.com/long2ice/fastapi-limiter/actions?query=workflow:pypi)
+[![workflows](https://github.com/long2ice/fastapi-limiter/workflows/ci/badge.svg)](https://github.com/long2ice/fastapi-limiter/actions?query=workflow:ci)
+
+## Introduction
+
+FastAPI-Limiter is a rate limiting tool for [fastapi](https://github.com/tiangolo/fastapi) routes, powered by [pyrate-limiter](https://github.com/vutran1710/PyrateLimiter).
+
+## Install
+
+Just install from pypi
+
+```shell script
+> pip install fastapi-limiter
+```
+
+## Quick Start
+
+FastAPI-Limiter is simple to use, which just provides a dependency `RateLimiter`. The following example allows `2` requests per `5` seconds on route `/`.
+
+```py
+import uvicorn
+from fastapi import Depends, FastAPI
+from pyrate_limiter import Duration, Limiter, Rate
+
+from fastapi_limiter.depends import RateLimiter
+
+app = FastAPI()
+
+@app.get(
+    "/",
+    dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(2, Duration.SECOND * 5))))],
+)
+async def index():
+    return {"msg": "Hello World"}
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", reload=True)
+```
+
+## Usage
+
+### RateLimiter
+
+`RateLimiter` accepts the following parameters:
+
+- `limiter`: A `pyrate_limiter.Limiter` instance that defines the rate limiting rules.
+- `identifier`: A callable to identify the request source, default is by IP + path.
+- `callback`: A callable invoked when the rate limit is exceeded, default raises `HTTPException` with `429` status code.
+- `blocking`: Whether to block the request when the rate limit is exceeded, default is `False`.
+- `skip`: An async callable that takes a request and returns `True` to skip rate limiting, default is `None`.
+
+### identifier
+
+Identifier of route limit, default is `ip + path`, you can override it such as `userid` and so on.
+
+```py
+async def default_identifier(request: Union[Request, WebSocket]):
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        ip = forwarded.split(",")[0]
+    elif request.client:
+        ip = request.client.host
+    else:
+        ip = "127.0.0.1"
+    return ip + ":" + request.scope["path"]
+```
+
+### callback
+
+Callback when rate limit is exceeded, default raises `HTTPException` with `429` status code.
+
+```py
+def default_callback(*args, **kwargs):
+    raise HTTPException(
+        HTTP_429_TOO_MANY_REQUESTS,
+        "Too Many Requests",
+    )
+```
+
+## Multiple limiters
+
+You can use multiple limiters in one route.
+
+```py
+@app.get(
+    "/multiple",
+    dependencies=[
+        Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5)))),
+        Depends(RateLimiter(limiter=Limiter(Rate(2, Duration.SECOND * 15)))),
+    ],
+)
+async def multiple():
+    return {"msg": "Hello World"}
+```
+
+Note that you should keep the stricter limiter (lower `seconds/times` ratio) first.
+
+## Skip rate limiting
+
+You can pass a `skip` callable to `RateLimiter` to conditionally skip rate limiting for a specific route. The callable receives the request and should return `True` to skip.
+
+```py
+from fastapi.requests import Request
+
+async def skip(request: Request):
+    return request.scope["path"] == "/skip"
+
+@app.get(
+    "/skip",
+    dependencies=[
+        Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5)), skip=skip))
+    ],
+)
+async def skip_route():
+    return {"msg": "This route skips rate limiting"}
+```
+
+## Middleware
+
+You can also use `RateLimiterMiddleware` to apply rate limiting globally to all routes without adding dependencies to each route individually.
+
+```py
+from fastapi import FastAPI
+from pyrate_limiter import Duration, Limiter, Rate
+
+from fastapi_limiter.middleware import RateLimiterMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    RateLimiterMiddleware,
+    limiter=Limiter(Rate(2, Duration.SECOND * 5)),
+)
+
+
+@app.get("/")
+async def index():
+    return {"msg": "Hello World"}
+```
+
+`RateLimiterMiddleware` accepts the same `identifier`, `callback`, `blocking`, and `skip` parameters as `RateLimiter`.
+
+## Rate limiting within a websocket
+
+While the above examples work with REST requests, FastAPI also allows easy usage
+of websockets, which require a slightly different approach.
+
+Because websockets are likely to be long lived, you may want to rate limit in
+response to data sent over the socket.
+
+You can do this by rate limiting within the body of the websocket handler:
+
+```py
+from fastapi_limiter.depends import WebSocketRateLimiter
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    ratelimit = WebSocketRateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5)))
+    while True:
+        try:
+            data = await websocket.receive_text()
+            await ratelimit(websocket, context_key=data)  # NB: context_key is optional
+            await websocket.send_text("Hello, world")
+        except HTTPException:
+            await websocket.send_text("Hello again")
+```
+
+## License
+
+This project is licensed under the
+[Apache-2.0](https://github.com/long2ice/fastapi-limiter/blob/master/LICENCE) License.
+
+
+
+================================================
+FILE: conftest.py
+================================================
+[Empty file]
+
+
+================================================
+FILE: LICENSE
+================================================
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright 2020 long2ice
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+
+
+================================================
+FILE: Makefile
+================================================
+checkfiles = fastapi_limiter/ tests/ examples/ conftest.py
+py_warn = PYTHONDEVMODE=1
+
+help:
+	@echo "fastapi-limiter development makefile"
+	@echo
+	@echo  "usage: make <target>"
+	@echo  "Targets:"
+	@echo  "    up			Updates dev/test dependencies"
+	@echo  "    deps		Ensure dev/test dependencies are installed"
+	@echo  "    check		Checks that build is sane"
+	@echo  "    build		Build package"
+	@echo  "    test		Runs all tests"
+	@echo  "    style		Auto-formats the code"
+
+up:
+	@uv sync --upgrade
+
+deps:
+	@uv sync --all-groups
+
+style: deps
+	@uv run ruff format $(checkfiles)
+
+check: deps
+	@uv run ruff check $(checkfiles)
+	@uv run ty check $(checkfiles)
+
+test: deps
+	@$(py_warn) uv run pytest
+
+build: deps
+	@uv build
+
+ci: check test
+
+
+
+================================================
+FILE: pyproject.toml
+================================================
+[project]
+name = "fastapi-limiter"
+version = "0.2.0"
+description = "A request rate limiter for fastapi"
+authors = [{ name = "long2ice", email = "long2ice@gmail.com" }]
+requires-python = ">=3.9,<4"
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["fastapi", "limiter"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = ["fastapi", "pyrate-limiter>=3.9.0"]
+
+[project.urls]
+Homepage = "https://github.com/long2ice/fastapi-limiter"
+Repository = "https://github.com/long2ice/fastapi-limiter.git"
+Documentation = "https://github.com/long2ice/fastapi-limiter"
+
+[dependency-groups]
+dev = [
+    "uvicorn",
+    "ruff",
+    "ty",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-mock",
+    "pytest-xdist",
+    "requests",
+    "httpx",
+]
+
+[tool.uv.build-backend]
+module-name = ["fastapi_limiter"]
+module-root = ""
+source-include = ["CHANGELOG.md", "LICENSE", "README.md"]
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"
+
+
+
+================================================
+FILE: examples/main.py
+================================================
+import uvicorn
+from fastapi import Depends, FastAPI, HTTPException, WebSocket
+from fastapi.requests import Request
+from pyrate_limiter import Duration, Limiter, Rate
+from starlette.websockets import WebSocketDisconnect
+
+from fastapi_limiter.depends import RateLimiter, WebSocketRateLimiter
+
+app = FastAPI()
+
+
+@app.get(
+    "/",
+    dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(2, Duration.SECOND * 5))))],
+)
+async def index_get():
+    return {"msg": "Hello World"}
+
+
+@app.post(
+    "/",
+    dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))],
+)
+async def index_post():
+    return {"msg": "Hello World"}
+
+
+@app.get(
+    "/multiple",
+    dependencies=[
+        Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5)))),
+        Depends(RateLimiter(limiter=Limiter(Rate(2, Duration.SECOND * 15)))),
+    ],
+)
+async def multiple():
+    return {"msg": "Hello World"}
+
+
+async def skip(request: Request):
+    return request.scope["path"] == "/skip"
+
+
+@app.get(
+    "/skip",
+    dependencies=[
+        Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5)), skip=skip))
+    ],
+)
+async def skip_route():
+    return {"msg": "This route skips rate limiting"}
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    ratelimit = WebSocketRateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5)))
+    while True:
+        try:
+            data = await websocket.receive_text()
+            await ratelimit(websocket, context_key=data)  # NB: context_key is optional
+            await websocket.send_text("Hello, world")
+        except WebSocketDisconnect:
+            break
+        except HTTPException:
+            await websocket.send_text("Hello again")
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", reload=True)
+
+
+
+================================================
+FILE: examples/middleware.py
+================================================
+import uvicorn
+from fastapi import FastAPI
+from fastapi.requests import Request
+from pyrate_limiter import Duration, Limiter, Rate
+
+from fastapi_limiter.middleware import RateLimiterMiddleware
+
+app = FastAPI()
+
+
+async def skip(request: Request):
+    return request.scope["path"] == "/skip"
+
+
+app.add_middleware(
+    RateLimiterMiddleware,
+    limiter=Limiter(Rate(2, Duration.SECOND * 5)),
+    skip=skip,
+)
+
+
+@app.get("/")
+async def index():
+    return {"msg": "Hello World"}
+
+
+@app.get("/other")
+async def other():
+    return {"msg": "Other"}
+
+
+@app.get("/skip")
+async def skip_route():
+    return {"msg": "This route skips rate limiting"}
+
+
+if __name__ == "__main__":
+    uvicorn.run("middleware:app", reload=True)
+
+
+
+================================================
+FILE: fastapi_limiter/__init__.py
+================================================
+[Empty file]
+
+
+================================================
+FILE: fastapi_limiter/callback.py
+================================================
+from fastapi import HTTPException
+from starlette.status import HTTP_429_TOO_MANY_REQUESTS
+
+
+def default_callback(*args, **kwargs):
+    raise HTTPException(
+        HTTP_429_TOO_MANY_REQUESTS,
+        "Too Many Requests",
+    )
+
+
+
+================================================
+FILE: fastapi_limiter/depends.py
+================================================
+from pyrate_limiter import Limiter
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.websockets import WebSocket
+
+from fastapi_limiter.callback import default_callback
+from fastapi_limiter.identifier import default_identifier
+
+
+class _BaseRateLimiter:
+    def __init__(
+        self,
+        limiter: Limiter,
+        identifier=default_identifier,
+        callback=default_callback,
+        blocking: bool = False,
+        skip=None,
+    ):
+        self.limiter = limiter
+        self.identifier = identifier
+        self.callback = callback
+        self.blocking = blocking
+        self.skip = skip
+
+
+class RateLimiter(_BaseRateLimiter):
+    async def __call__(self, request: Request, response: Response):
+        if self.skip and await self.skip(request):
+            return
+        rate_key = await self.identifier(request)
+        success = await self.limiter.try_acquire_async(rate_key, blocking=self.blocking)
+        if not success:
+            return await self.callback(request, response)
+
+
+class WebSocketRateLimiter(_BaseRateLimiter):
+    async def __call__(self, ws: WebSocket, context_key: str = ""):
+        if self.skip and await self.skip(ws):
+            return
+        rate_key = await self.identifier(ws)
+        key = f"{rate_key}:{context_key}"
+        success = await self.limiter.try_acquire_async(key, blocking=self.blocking)
+        if not success:
+            return await self.callback(ws)
+
+
+
+================================================
+FILE: fastapi_limiter/identifier.py
+================================================
+from typing import Union
+
+from starlette.requests import Request
+from starlette.websockets import WebSocket
+
+
+async def default_identifier(request: Union[Request, WebSocket]):
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        ip = forwarded.split(",")[0]
+    elif request.client:
+        ip = request.client.host
+    else:
+        ip = "127.0.0.1"
+    return ip + ":" + request.scope["path"]
+
+
+
+================================================
+FILE: fastapi_limiter/middleware.py
+================================================
+from fastapi import status
+from pyrate_limiter import Limiter
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+
+from fastapi_limiter.identifier import default_identifier
+
+
+async def _default_middleware_callback(request: Request) -> Response:
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={"detail": "Too Many Requests"},
+    )
+
+
+class RateLimiterMiddleware(BaseHTTPMiddleware):
+    def __init__(
+        self,
+        app,
+        limiter: Limiter,
+        identifier=default_identifier,
+        callback=_default_middleware_callback,
+        blocking: bool = False,
+        skip=None,
+    ):
+        super().__init__(app)
+        self.limiter = limiter
+        self.identifier = identifier
+        self.callback = callback
+        self.blocking = blocking
+        self.skip = skip
+
+    async def dispatch(self, request: Request, call_next):
+        if self.skip and await self.skip(request):
+            return await call_next(request)
+        rate_key = await self.identifier(request)
+        success = await self.limiter.try_acquire_async(rate_key, blocking=self.blocking)
+        if not success:
+            return await self.callback(request)
+
+        return await call_next(request)
+
+
+
+================================================
+FILE: fastapi_limiter/py.typed
+================================================
+[Empty file]
+
+
+================================================
+FILE: tests/__init__.py
+================================================
+[Empty file]
+
+
+================================================
+FILE: tests/test_limiter.py
+================================================
+from time import sleep
+
+from starlette.testclient import TestClient
+
+from examples.main import app
+from examples.middleware import app as middleware_app
+
+
+def test_limiter():
+    with TestClient(app) as client:
+        response = client.get("/")
+        assert response.status_code == 200
+
+        response = client.get("/")
+        assert response.status_code == 200
+
+        response = client.get("/")
+        assert response.status_code == 429
+
+        response = client.post("/")
+        assert response.status_code == 200
+
+        response = client.post("/")
+        assert response.status_code == 429
+        sleep(5)
+
+        response = client.get("/")
+        assert response.status_code == 200
+
+        response = client.post("/")
+        assert response.status_code == 200
+
+
+def test_limiter_multiple():
+    with TestClient(app) as client:
+        response = client.get("/multiple")
+        assert response.status_code == 200
+
+        response = client.get("/multiple")
+        assert response.status_code == 429
+        sleep(5)
+
+        response = client.get("/multiple")
+        assert response.status_code == 200
+
+        response = client.get("/multiple")
+        assert response.status_code == 429
+        sleep(10)
+
+        response = client.get("/multiple")
+        assert response.status_code == 200
+
+
+def test_limiter_websockets():
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws") as ws:
+            ws.send_text("Hi")
+            data = ws.receive_text()
+            assert data == "Hello, world"
+
+            ws.send_text("Hi")
+            data = ws.receive_text()
+            assert data == "Hello again"
+
+            ws.send_text("Hi 2")
+            data = ws.receive_text()
+            assert data == "Hello again"
+            ws.close()
+
+
+def test_skip_limiter():
+    with TestClient(app) as client:
+        for _ in range(5):
+            response = client.get("/skip")
+            assert response.status_code == 200
+
+
+def test_middleware():
+    with TestClient(middleware_app) as client:
+        response = client.get("/")
+        assert response.status_code == 200
+
+        response = client.get("/")
+        assert response.status_code == 200
+
+        # Global limit of 2 per 5s reached
+        response = client.get("/")
+        assert response.status_code == 429
+
+        # Different path but same global limiter
+        response = client.get("/other")
+        assert response.status_code == 429
+
+        sleep(5)
+
+        response = client.get("/")
+        assert response.status_code == 200
+
+
+
+================================================
+FILE: .github/workflows/ci.yml
+================================================
+name: ci
+on: [push, pull_request]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install dependencies
+        run: uv sync --all-groups
+      - name: CI
+        run: make ci
+
+
+
+================================================
+FILE: .github/workflows/pypi.yml
+================================================
+name: pypi
+on:
+  release:
+    types:
+      - created
+jobs:
+  pypi-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/fastapi-limiter
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install dependencies
+        run: uv sync --all-groups
+      - name: Build dists
+        run: make build
+      - name: Pypi Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+
