@@ -1,19 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Callable, Protocol
+from typing import Protocol
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 
 from app.core.settings import RateLimitConfig, get_app_settings
 
 
 class RateLimiter(Protocol):
-    def init_app(self, app: FastAPI) -> None:
-        ...
+    def init_app(self, app: FastAPI) -> None: ...
 
-    def dependency(self, limit_value: str) -> Callable:
-        ...
+    def dependency(self, limit_value: str) -> Callable: ...
 
 
 class NoopRateLimiter:
@@ -25,44 +24,6 @@ class NoopRateLimiter:
             return None
 
         return _noop
-
-
-class SlowApiRateLimiter:
-    def __init__(self, config: RateLimitConfig):
-        from slowapi import Limiter, _rate_limit_exceeded_handler
-        from slowapi.errors import RateLimitExceeded
-        from slowapi.util import get_remote_address
-
-        self._limiter = Limiter(
-            key_func=get_remote_address,
-            default_limits=config.default_limits or None,
-            storage_uri=config.storage_uri,
-            headers_enabled=config.headers_enabled,
-        )
-        self._exception_class = RateLimitExceeded
-        self._exception_handler = _rate_limit_exceeded_handler
-
-    def init_app(self, app: FastAPI) -> None:
-        app.state.limiter = self._limiter
-        app.state.rate_limiter = self
-        app.add_exception_handler(self._exception_class, self._exception_handler)  # type: ignore[arg-type]
-
-    def dependency(self, limit_value: str) -> Callable:
-        decorated = self._limiter.limit(limit_value)
-
-        async def _noop():
-            return None
-
-        wrapped = decorated(_noop)
-
-        async def _dependency(request: Request, response: Response):
-            return await wrapped(request=request, response=response)
-
-        return _dependency
-
-    @property
-    def limiter(self):
-        return self._limiter
 
 
 class FastapiLimiterRateLimiter:
@@ -153,8 +114,6 @@ def build_rate_limiter(config: RateLimitConfig) -> RateLimiter:
         return NoopRateLimiter()
 
     provider = config.provider.lower()
-    if provider == "slowapi":
-        return SlowApiRateLimiter(config)
     if provider in {"fastapi-limiter", "fastapi_limiter"}:
         return FastapiLimiterRateLimiter(config)
 

@@ -52,7 +52,7 @@ class RateLimitConfig(BaseSettings):
     model_config = {"env_prefix": "RATE_LIMIT_"}
 
     enabled: bool = True
-    provider: str = "slowapi"
+    provider: str = "fastapi-limiter"
     default_limits: list[str] = []
     storage_uri: str | None = None
     headers_enabled: bool = True
