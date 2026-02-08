@@ -101,7 +101,7 @@ class UserRepository:
         """
         stmt = select(User)
         if not include_inactive:
-            stmt = stmt.where(User.is_active == True)
+            stmt = stmt.where(User.is_active)
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
