@@ -95,10 +95,10 @@ class AdminConfig(BaseSettings):
 
     model_config = {"env_prefix": "ADMIN_"}
 
-    name: str = "Administrator"
-    username: str = "admin"
-    email: str = "admin@example.com"
-    password: SecretStr = SecretStr("admin")
+    name: str
+    username: str
+    email: str
+    password: SecretStr
 
 
 class AppSettings(BaseSettings):
@@ -112,7 +112,7 @@ class AppSettings(BaseSettings):
     jwt: JwtConfig = Field(default_factory=JwtConfig)
     httpx: HttpxConfig = Field(default_factory=HttpxConfig)
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
-    admin: AdminConfig = Field(default_factory=AdminConfig)
+    admin: AdminConfig
 
     model_config = {
         "env_file": ".env",
@@ -125,4 +125,4 @@ class AppSettings(BaseSettings):
 @lru_cache
 def get_app_settings() -> AppSettings:
     """Get cached application settings."""
-    return AppSettings()
+    return AppSettings()  # type: ignore

@@ -12,6 +12,7 @@ from app.core.ratelimit import get_rate_limiter
 from app.core.settings import get_app_settings
 from app.core.utils.httpx_factory import create_async_client
 from app.database.session import sessionmanager
+from app.services.admin_seeding import initialize_database
 
 settings = get_app_settings()
 rate_limiter = get_rate_limiter()
@@ -28,6 +29,14 @@ async def lifespan_app(app: FastAPI):
     """
     logger.info("Starting application lifespan...")
     app.state.httpx = create_async_client(settings.httpx)
+
+    # Initialize database (create tables and seed admin user)
+    if sessionmanager.engine:
+        async with sessionmanager.session() as session:
+            await initialize_database(sessionmanager.engine, session)
+    else:
+        logger.error("Database engine is not initialized")
+
     rate_limiter.init_app(app)
 
     try:
