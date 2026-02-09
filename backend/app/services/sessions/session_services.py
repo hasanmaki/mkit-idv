@@ -22,6 +22,7 @@ Note:
 from datetime import UTC, datetime
 from hmac import compare_digest
 
+from app.core.logging import get_logger
 from app.models.sessions import Session
 from app.repositories import SessionRepository
 from app.services.sessions.session_errors import (
@@ -31,6 +32,8 @@ from app.services.sessions.session_errors import (
     SessionRevokedError,
 )
 from app.services.sessions.session_schemas import SessionCreate, SessionValidationResult
+
+logger = get_logger("service.session")
 
 
 class SessionService:
@@ -44,15 +47,10 @@ class SessionService:
 
     async def create_session(self, data: SessionCreate) -> Session:
         """Create a new session."""
-        session = Session(
-            user_id=data.user_id,
-            session_id=data.session_id,
-            refresh_token_hash=data.refresh_token_hash,
-            expires_at=data.expires_at,
-            ip_address=data.ip_address,
-            user_agent=data.user_agent,
+        session = await self.repo.create(data)
+        logger.debug(
+            "Session created, session_id={}, user_id={}", data.session_id, data.user_id
         )
-        await self.repo.add(session)
         return session
 
     async def validate_session(self, session_id: str) -> SessionValidationResult:
@@ -60,14 +58,23 @@ class SessionService:
         session = await self.repo.get_by_session_id(session_id)
 
         if not session:
+            logger.warning(
+                "Session validation failed: not found, session_id={}", session_id
+            )
             raise SessionNotFoundError(context={"session_id": session_id})
 
         if session.is_revoked:
+            logger.warning(
+                "Session validation failed: revoked, session_id={}", session_id
+            )
             raise SessionRevokedError(
                 context={"session_id": session_id, "revoked_at": session.revoked_at}
             )
 
         if session.expires_at <= self._now():
+            logger.warning(
+                "Session validation failed: expired, session_id={}", session_id
+            )
             raise SessionExpiredError(context={"session_id": session_id})
 
         session.last_activity_at = self._now()
@@ -101,13 +108,12 @@ class SessionService:
 
         return session
 
-    async def validate_refresh_token_hash(
-        self, refresh_token_hash: str
-    ) -> Session:
+    async def validate_refresh_token_hash(self, refresh_token_hash: str) -> Session:
         """Validate a refresh token hash and return its session."""
         session = await self.repo.get_by_refresh_token_hash(refresh_token_hash)
 
         if not session:
+            logger.warning("Refresh token validation failed: session not found")
             raise SessionNotFoundError(context={"refresh_token_hash": "not_found"})
 
         if session.is_revoked:
@@ -128,6 +134,7 @@ class SessionService:
         session.is_revoked = True
         session.revoked_at = self._now()
         await self.repo.save()
+        logger.info("Session revoked, session_id={}", session_id)
 
     async def list_sessions_for_user(self, user_id: int) -> list[Session]:
         """List sessions for a user."""
@@ -146,4 +153,7 @@ class SessionService:
                 session.revoked_at = now
 
         await self.repo.save()
+        logger.info(
+            "All sessions revoked, user_id={}, count={}", user_id, len(sessions)
+        )
         return len(sessions)

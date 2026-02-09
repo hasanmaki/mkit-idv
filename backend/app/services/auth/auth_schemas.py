@@ -143,6 +143,17 @@ class CreateUserRequest(BaseModel):
     }
 
 
+class UserCreateDB(BaseModel):
+    """Schema for creating a user record in the database."""
+
+    username: str
+    email: str
+    name: str
+    hashed_password: str
+    is_admin: bool = False
+    is_active: bool = True
+
+
 class UpdateUserRequest(BaseModel):
     """Schema for updating user information (admin only)."""
 

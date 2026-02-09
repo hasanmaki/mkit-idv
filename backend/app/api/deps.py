@@ -1,9 +1,8 @@
-# Copyright (c) 2026 okedigitalmedia/hasanmaki. All rights reserved.
-
 """API dependency providers."""
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from functools import lru_cache
 
 from fastapi import Depends, HTTPException, Request, status
@@ -11,15 +10,19 @@ from fastapi.security import OAuth2PasswordBearer
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.core.settings import JwtConfig, get_app_settings
 from app.core.utils.hashing import get_password_hasher as _get_password_hasher
+from app.database.session import get_db_session
 from app.repositories import SessionRepository, UserRepository
 from app.services.auth.auth_services import AuthService
 from app.services.jwt import JwtService
 from app.services.jwt.jwt_errors import JwtError
+from app.services.password import PasswordService
 from app.services.sessions.session_services import SessionService
 from app.services.user_management import UserManagementService
-from app.services.password import PasswordService
+
+logger = get_logger("deps")
 
 
 @lru_cache
@@ -35,9 +38,7 @@ def get_password_hasher():
     return _get_password_hasher()
 
 
-async def get_db_session_dep() -> AsyncSession:
-    from app.database.session import get_db_session
-
+async def get_db_session_dep() -> AsyncGenerator[AsyncSession]:
     async for session in get_db_session():
         yield session
 
@@ -100,6 +101,9 @@ async def get_current_user(
 
     user = await user_repo.get_by_id(session.user_id)
     if user is None or not user.is_active:
+        logger.warning(
+            "Auth dependency: inactive or missing user, user_id={}", session.user_id
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
         )

@@ -19,6 +19,8 @@ Note:
     - Important constraints or considerations
 """
 
+from typing import Any
+
 from sqlalchemy import JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -53,7 +55,7 @@ class Servers(Base, TimestampMixin):
         nullable=False,
     )
     max_requests_queued: Mapped[int] = mapped_column(nullable=False)
-    parameters: Mapped[JSON] = mapped_column(nullable=True)
+    parameters: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     notes: Mapped[str] = mapped_column(String(255), nullable=True)
 
     def __repr__(self) -> str:

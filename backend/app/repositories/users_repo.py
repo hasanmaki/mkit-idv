@@ -9,10 +9,15 @@ It abstracts database operations and provides a clean interface for user data ac
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.models.users import User
+from app.repositories.base_repo import BaseRepository
+from app.services.auth.auth_schemas import UpdateUserRequest, UserCreateDB
+
+logger = get_logger("repo.users")
 
 
-class UserRepository:
+class UserRepository(BaseRepository[User, UserCreateDB, UpdateUserRequest]):
     """Repository for user data access.
 
     Using Repository Pattern to abstract database operations for user management.
@@ -35,20 +40,7 @@ class UserRepository:
     """
 
     def __init__(self, db: AsyncSession):
-        self.db = db
-
-    async def get_by_id(self, user_id: int) -> User | None:
-        """Get user by ID.
-
-        Args:
-            user_id (int): The user ID.
-
-        Returns:
-            User | None: The user if found, None otherwise.
-        """
-        stmt = select(User).where(User.id == user_id)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        super().__init__(db, User)
 
     async def get_by_username(self, username: str) -> User | None:
         """Get user by username.
@@ -82,9 +74,8 @@ class UserRepository:
         Args:
             user (User): The user entity to add.
         """
-        self.db.add(user)
-        await self.db.commit()
-        await self.db.refresh(user)
+        await super().add(user)
+        logger.debug("User persisted, user_id={}", user.id)
 
     async def list_users(
         self, skip: int = 0, limit: int = 100, include_inactive: bool = False
@@ -107,5 +98,6 @@ class UserRepository:
         return list(result.scalars().all())
 
     async def save(self) -> None:
-        """Save changes to the database."""
-        await self.db.commit()
+        """Flush pending changes to the database."""
+        await super().save()
+        logger.debug("User repository changes flushed")

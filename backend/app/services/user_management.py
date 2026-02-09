@@ -6,14 +6,18 @@ This module provides user management operations for administrators including
 creating users, listing users, updating user information, and deactivating users.
 """
 
+from app.core.logging import get_logger
+from app.core.utils.hashing import hash_password
 from app.models.users import User
 from app.repositories import UserRepository
+from app.services.auth.auth_errors import UserNotFoundError
 from app.services.auth.auth_schemas import (
     CreateUserRequest,
     UpdateUserRequest,
-    UserResponse,
+    UserCreateDB,
 )
-from app.core.utils.hashing import hash_password
+
+logger = get_logger("service.user_mgmt")
 
 
 class UserManagementService:
@@ -44,13 +48,15 @@ class UserManagementService:
         """
         existing_by_username = await self.user_repo.get_by_username(data.username)
         if existing_by_username:
+            logger.warning("User creation failed: duplicate username={}", data.username)
             raise ValueError(f"Username '{data.username}' already exists")
 
         existing_by_email = await self.user_repo.get_by_email(data.email)
         if existing_by_email:
+            logger.warning("User creation failed: duplicate email")
             raise ValueError(f"Email '{data.email}' already exists")
 
-        user = User(
+        user_in = UserCreateDB(
             username=data.username,
             email=data.email,
             name=data.name,
@@ -59,7 +65,8 @@ class UserManagementService:
             is_active=True,
         )
 
-        await self.user_repo.add(user)
+        user = await self.user_repo.create(user_in)
+        logger.info("User created, user_id={}, username={}", user.id, user.username)
 
         return user
 
@@ -118,17 +125,13 @@ class UserManagementService:
         """
         user = await self.get_user(user_id)
 
-        if data.name is not None:
-            user.name = data.name
         if data.email is not None:
             existing = await self.user_repo.get_by_email(data.email)
             if existing and existing.id != user_id:
                 raise ValueError(f"Email '{data.email}' already exists")
-            user.email = data.email
-        if data.is_admin is not None:
-            user.is_admin = data.is_admin
 
-        await self.user_repo.save()
+        user = await self.user_repo.update(user, data)
+        logger.info("User updated, user_id={}", user_id)
 
         return user
 
@@ -144,6 +147,7 @@ class UserManagementService:
         user = await self.get_user(user_id)
         user.is_active = False
         await self.user_repo.save()
+        logger.info("User deactivated, user_id={}", user_id)
 
     async def activate_user(self, user_id: int) -> None:
         """Activate a user account.
@@ -157,6 +161,7 @@ class UserManagementService:
         user = await self.get_user(user_id)
         user.is_active = True
         await self.user_repo.save()
+        logger.info("User activated, user_id={}", user_id)
 
     async def delete_user(self, user_id: int) -> None:
         """Delete a user account (soft delete via deactivation).

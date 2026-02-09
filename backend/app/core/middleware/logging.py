@@ -8,6 +8,8 @@ from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
+from app.core.logging import trace_id_ctx
+
 SLOW_REQUEST_MS = 1000
 
 
@@ -22,43 +24,46 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         )
         request.state.trace_id = trace_id
 
+        token = trace_id_ctx.set(trace_id)
         start = time.perf_counter()
         response: Response
         try:
-            response = await call_next(request)
-        except Exception:
-            duration_ms = int((time.perf_counter() - start) * 1000)
-            logger.bind(
-                trace_id=trace_id,
-                method=request.method,
-                path=request.url.path,
-                duration_ms=duration_ms,
-            ).exception("REQUEST_FAILED")
-            raise
+            with logger.contextualize(trace_id=trace_id):
+                try:
+                    response = await call_next(request)
+                except Exception:
+                    duration_ms = int((time.perf_counter() - start) * 1000)
+                    logger.bind(
+                        method=request.method,
+                        path=request.url.path,
+                        duration_ms=duration_ms,
+                    ).exception("REQUEST_FAILED")
+                    raise
 
-        duration_ms = int((time.perf_counter() - start) * 1000)
-        status = response.status_code
-        client_ip = request.client.host if request.client else "unknown"
-        user_agent = request.headers.get("user-agent", "-")
+                duration_ms = int((time.perf_counter() - start) * 1000)
+                status = response.status_code
+                client_ip = request.client.host if request.client else "unknown"
+                user_agent = request.headers.get("user-agent", "-")
 
-        bound = logger.bind(
-            trace_id=trace_id,
-            method=request.method,
-            path=request.url.path,
-            status=status,
-            duration_ms=duration_ms,
-            client_ip=client_ip,
-            user_agent=user_agent,
-        )
+                bound = logger.bind(
+                    method=request.method,
+                    path=request.url.path,
+                    status=status,
+                    duration_ms=duration_ms,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                )
 
-        if duration_ms > SLOW_REQUEST_MS:
-            bound.warning("SLOW_REQUEST")
-        elif 400 <= status < 500:
-            bound.warning("REQUEST")
-        elif status >= 500:
-            bound.error("REQUEST")
-        else:
-            bound.info("REQUEST")
+                if duration_ms > SLOW_REQUEST_MS:
+                    bound.warning("SLOW_REQUEST")
+                elif 400 <= status < 500:
+                    bound.warning("REQUEST")
+                elif status >= 500:
+                    bound.error("REQUEST")
+                else:
+                    bound.info("REQUEST")
 
-        response.headers["X-Trace-Id"] = trace_id
-        return response
+                response.headers["X-Trace-Id"] = trace_id
+                return response
+        finally:
+            trace_id_ctx.reset(token)

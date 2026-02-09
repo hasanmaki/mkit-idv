@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from pathlib import Path
 
 from loguru import logger
@@ -10,6 +11,20 @@ from app.core.settings import get_app_settings
 
 LOG_CONFIG_PATH = Path("backend/mlog.yaml")
 LOG_DIR = Path("logs")
+
+trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="no-trace")
+
+
+def get_logger(layer: str):
+    """Return a loguru logger pre-bound with an architectural layer tag.
+
+    Usage at module level in any file::
+
+        from app.core.logging import get_logger
+
+        logger = get_logger("service.auth")
+    """
+    return logger.bind(layer=layer)
 
 
 class InterceptHandler(logging.Handler):

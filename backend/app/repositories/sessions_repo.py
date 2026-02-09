@@ -22,10 +22,15 @@ Note:
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.models.sessions import Session
+from app.repositories.base_repo import BaseRepository
+from app.services.sessions.session_schemas import SessionCreate, SessionUpdate
+
+logger = get_logger("repo.sessions")
 
 
-class SessionRepository:
+class SessionRepository(BaseRepository[Session, SessionCreate, SessionUpdate]):
     """Repository for session data access.
 
     using Repository Pattern  to abstract database operations for session management.
@@ -44,7 +49,7 @@ class SessionRepository:
     """
 
     def __init__(self, db: AsyncSession):
-        self.db = db
+        super().__init__(db, Session)
 
     async def get_by_session_id(self, session_id: str) -> Session | None:
         """Get session by session_id."""
@@ -54,9 +59,8 @@ class SessionRepository:
 
     async def add(self, session: Session) -> None:
         """Add a new session to the database."""
-        self.db.add(session)
-        await self.db.commit()
-        await self.db.refresh(session)
+        await super().add(session)
+        logger.debug("Session persisted, session_id={}", session.session_id)
 
     async def get_by_refresh_token_hash(
         self, refresh_token_hash: str
@@ -73,5 +77,6 @@ class SessionRepository:
         return list(result.scalars().all())
 
     async def save(self) -> None:
-        """Save changes to the database."""
-        await self.db.commit()
+        """Flush pending changes to the database."""
+        await super().save()
+        logger.debug("Session repository changes flushed")

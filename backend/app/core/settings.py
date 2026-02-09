@@ -90,6 +90,17 @@ class DatabaseConfig(BaseSettings):
     db_url: str = "sqlite+aiosqlite:///./application.db"
 
 
+class AdminConfig(BaseSettings):
+    """Default admin credentials for seeding."""
+
+    model_config = {"env_prefix": "ADMIN_"}
+
+    name: str = "Administrator"
+    username: str = "admin"
+    email: str = "admin@example.com"
+    password: SecretStr = SecretStr("admin")
+
+
 class AppSettings(BaseSettings):
     """Application settings for FastAPI app."""
 
@@ -101,6 +112,7 @@ class AppSettings(BaseSettings):
     jwt: JwtConfig = Field(default_factory=JwtConfig)
     httpx: HttpxConfig = Field(default_factory=HttpxConfig)
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
+    admin: AdminConfig = Field(default_factory=AdminConfig)
 
     model_config = {
         "env_file": ".env",
@@ -114,4 +126,3 @@ class AppSettings(BaseSettings):
 def get_app_settings() -> AppSettings:
     """Get cached application settings."""
     return AppSettings()
-

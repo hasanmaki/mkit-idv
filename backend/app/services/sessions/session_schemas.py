@@ -50,6 +50,17 @@ class SessionValidationResult(BaseModel):
     }
 
 
+class SessionUpdate(BaseModel):
+    """Schema for updating a session record."""
+
+    is_revoked: bool | None = None
+    revoked_at: datetime | None = None
+    expires_at: datetime | None = None
+    last_activity_at: datetime | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+
+
 class SessionPublic(BaseModel):
     """Public schema for session data."""
 

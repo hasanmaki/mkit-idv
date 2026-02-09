@@ -2,18 +2,21 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from loguru import logger
 
 from app.api import include_api_routers
 from app.core import configure_logging
 from app.core.exceptions import register_exception_handlers
+from app.core.logging import get_logger
 from app.core.middleware.logging import RequestLoggingMiddleware
 from app.core.ratelimit import get_rate_limiter
 from app.core.settings import get_app_settings
 from app.core.utils.httpx_factory import create_async_client
+from app.database.session import sessionmanager
 
 settings = get_app_settings()
 rate_limiter = get_rate_limiter()
+
+logger = get_logger("app")
 
 
 @asynccontextmanager
@@ -27,9 +30,12 @@ async def lifespan_app(app: FastAPI):
     app.state.httpx = create_async_client(settings.httpx)
     rate_limiter.init_app(app)
 
-    yield
-    await app.state.httpx.aclose()
-    logger.info("Ending application lifespan...")
+    try:
+        yield
+    finally:
+        await app.state.httpx.aclose()
+        await sessionmanager.close()
+        logger.info("Ending application lifespan...")
 
 
 def create_app() -> FastAPI:

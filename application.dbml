@@ -28,24 +28,12 @@ table sessions {
     updated_at timestamp [default: `CURRENT_TIMESTAMP`, not null]
 }
 
-table customers {
+table servers {
     id integer [pk, increment]
     name text [not null]
-    email text [unique, not null]
-    phone text [null]
-    telegram_id integer [unique, null]
+    ip_address text [not null]
+    port integer [not null]
+    is_active boolean [default: true, not null]
     created_at timestamp [default: `CURRENT_TIMESTAMP`, not null]
     updated_at timestamp [default: `CURRENT_TIMESTAMP`, not null]
-    notes text [null]
-}
-
-table accounts {
-    id integer [pk, increment]
-    customer_id integer [not null, ref: > customers.id]
-    msisdn varchar(15) [unique, not null]
-    pin varchar(10) [not null]
-    email text [null]
-    is_active boolean [default: true, not null]
-    is_logged_in boolean [default: false, not null]
-
 }

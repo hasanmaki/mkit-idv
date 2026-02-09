@@ -16,6 +16,7 @@ Key Design:
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from app.core.logging import get_logger
 from app.core.settings import JwtConfig
 from app.models.users import User
 from app.repositories import UserRepository
@@ -23,6 +24,8 @@ from app.services.auth.auth_schemas import LoginResponse, RefreshTokenResponse
 from app.services.jwt.jwt_service import JwtService
 from app.services.sessions.session_schemas import SessionCreate
 from app.services.sessions.session_services import SessionService
+
+logger = get_logger("service.auth")
 
 
 class AuthService:
@@ -88,6 +91,7 @@ class AuthService:
         if not user.is_active:
             from app.services.auth.auth_errors import UserInactiveError
 
+            logger.warning("Login rejected: inactive account, user_id={}", user.id)
             raise UserInactiveError(context={"user_id": user.id})
 
         # Generate opaque refresh token (plaintext + hash)
@@ -116,6 +120,8 @@ class AuthService:
             user_id=user.id,
             session_id=session_id,
         )
+
+        logger.info("User logged in, user_id={}, session_id={}", user.id, session_id)
 
         return LoginResponse(
             access_token=access_token,
@@ -173,6 +179,8 @@ class AuthService:
             session_id=session.session_id,
         )
 
+        logger.debug("Tokens refreshed, session_id={}", session.session_id)
+
         return RefreshTokenResponse(
             access_token=access_token,
             refresh_token=new_refresh_token,
@@ -193,3 +201,4 @@ class AuthService:
         refresh_hash = self.jwt.hash_refresh_token(refresh_token)
         session = await self.sessions.validate_refresh_token_hash(refresh_hash)
         await self.sessions.revoke_session(session.session_id)
+        logger.info("User logged out, session_id={}", session.session_id)

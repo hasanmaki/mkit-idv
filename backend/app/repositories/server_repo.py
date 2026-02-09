@@ -22,10 +22,15 @@ Note:
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.models.apiservers import Servers
+from app.repositories.base_repo import BaseRepository
+from app.services.servers.server_schemas import ServerCreate, ServerUpdate
+
+logger = get_logger("repo.servers")
 
 
-class ServerRepository:
+class ServerRepository(BaseRepository[Servers, ServerCreate, ServerUpdate]):
     """Repository for server data access.
 
     using Repository Pattern  to abstract database operations for server management.
@@ -41,13 +46,11 @@ class ServerRepository:
     """
 
     def __init__(self, db: AsyncSession):
-        self.db = db
+        super().__init__(db, Servers)
 
     async def get_by_server_id(self, server_id: int) -> Servers | None:
         """Get server by ID."""
-        stmt = select(Servers).where(Servers.id == server_id)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        return await super().get_by_id(server_id)
 
     async def get_by_name(self, name: str) -> Servers | None:
         """Get server by name."""
@@ -57,14 +60,10 @@ class ServerRepository:
 
     async def update_by_id(self, server_id: int, **kwargs) -> None:
         """Update server by ID."""
-        stmt = select(Servers).where(Servers.id == server_id)
-        result = await self.db.execute(stmt)
-        server = result.scalar_one_or_none()
+        server = await super().get_by_id(server_id)
         if server:
-            for key, value in kwargs.items():
-                setattr(server, key, value)
-            await self.db.commit()
-            await self.db.refresh(server)
+            await self.update(server, kwargs)
+            logger.debug("Server updated, server_id={}", server_id)
 
     async def list_servers(
         self, skip: int = 0, limit: int = 100, include_inactive: bool = False
@@ -82,7 +81,7 @@ class ServerRepository:
         """
         stmt = select(Servers)
         if not include_inactive:
-            stmt = stmt.where(Servers.is_active == True)  # noqa: E712
+            stmt = stmt.where(Servers.is_active.is_(True))
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
@@ -96,13 +95,10 @@ class ServerRepository:
         Returns:
             None
         """
-        stmt = select(Servers).where(Servers.id == server_id)
-        result = await self.db.execute(stmt)
-        server = result.scalar_one_or_none()
+        server = await super().get_by_id(server_id)
         if server:
-            server.is_active = False
-            await self.db.commit()
-            await self.db.refresh(server)
+            await self.update(server, {"is_active": False})
+            logger.debug("Server soft-deleted, server_id={}", server_id)
 
     async def add(self, server: "Servers") -> None:
         """Add a new server to the database.
@@ -110,10 +106,9 @@ class ServerRepository:
         Args:
             server (Servers): The server entity to add.
         """
-        self.db.add(server)
-        await self.db.commit()
-        await self.db.refresh(server)
+        await super().add(server)
+        logger.debug("Server persisted, server_id={}", server.id)
 
     async def save(self) -> None:
-        """Save changes to the database."""
-        await self.db.commit()
+        """Flush pending changes to the database."""
+        await super().save()

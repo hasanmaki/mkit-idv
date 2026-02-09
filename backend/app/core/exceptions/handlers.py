@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from app.core.exceptions.base import AppBaseExceptionError
+from app.core.logging import trace_id_ctx
 from app.core.settings import get_app_settings
 
 
@@ -20,6 +21,8 @@ def _extract_trace_id(request: Request) -> str:
         trace_id = request.headers.get("X-Trace-Id")
     if not trace_id:
         trace_id = request.headers.get("X-Request-Id")
+    if not trace_id:
+        trace_id = trace_id_ctx.get("no-trace")
     return trace_id or uuid4().hex
 
 
@@ -36,7 +39,6 @@ def make_app_base_exception_handler(logger_):  # noqa: D103
         settings = get_app_settings()
         trace_id = _extract_trace_id(request)
         bound = logger_.bind(
-            trace_id=trace_id,
             error=exc.__class__.__name__,
             error_code=exc.error_code,
             status=exc.status_code,
@@ -61,7 +63,7 @@ def make_http_exception_handler(logger_):
         assert isinstance(exc, HTTPException)
         trace_id = _extract_trace_id(request)
         level = "WARNING" if 400 <= exc.status_code < 500 else "ERROR"
-        bound = logger_.bind(trace_id=trace_id, status=exc.status_code)
+        bound = logger_.bind(status=exc.status_code)
         bound.log(
             level,
             "HTTP_ERROR | {status} | {detail} | path={path}",
@@ -89,7 +91,7 @@ def make_unexpected_exception_handler(logger_):
     async def handler(request: Request, exc: Exception) -> JSONResponse:  # noqa: RUF029
         """Handle unexpected Exception and return generic JSON response."""
         trace_id = _extract_trace_id(request)
-        bound = logger_.bind(trace_id=trace_id, path=request.url.path)
+        bound = logger_.bind(path=request.url.path)
         bound.opt(exception=exc).critical(
             "UNEXPECTED_ERROR | {type} | {exc!r} | path={path}",
             type=exc.__class__.__name__,

@@ -6,11 +6,14 @@ This module provides password-related operations including password change
 for users and password reset by administrators.
 """
 
+from app.core.logging import get_logger
+from app.core.utils.hashing import hash_password, verify_password
 from app.models.users import User
 from app.repositories import UserRepository
 from app.services.auth.auth_errors import InvalidCredentialsError, UserNotFoundError
 from app.services.auth.auth_schemas import ChangePasswordRequest, ResetPasswordRequest
-from app.core.utils.hashing import hash_password, verify_password
+
+logger = get_logger("service.password")
 
 
 class PasswordService:
@@ -43,6 +46,9 @@ class PasswordService:
             ValueError: If new password is the same as current password.
         """
         if not verify_password(data.current_password, user.hashed_password):
+            logger.warning(
+                "Password change failed: invalid current password, user_id={}", user.id
+            )
             raise InvalidCredentialsError()
 
         if verify_password(data.new_password, user.hashed_password):
@@ -53,6 +59,7 @@ class PasswordService:
 
         user.hashed_password = hash_password(data.new_password)
         await self.user_repo.save()
+        logger.info("Password changed, user_id={}", user.id)
 
     async def reset_password_by_admin(
         self,
@@ -72,6 +79,9 @@ class PasswordService:
         user = await self.user_repo.get_by_id(user_id)
 
         if not user:
+            logger.warning(
+                "Admin password reset failed: user not found, user_id={}", user_id
+            )
             raise UserNotFoundError(context={"user_id": user_id})
 
         if len(data.new_password) < 12:
@@ -79,3 +89,4 @@ class PasswordService:
 
         user.hashed_password = hash_password(data.new_password)
         await self.user_repo.save()
+        logger.info("Admin password reset, user_id={}", user_id)

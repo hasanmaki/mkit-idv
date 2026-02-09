@@ -11,7 +11,6 @@ Note:
 import contextlib
 from collections.abc import AsyncIterator
 
-from loguru import logger
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -21,11 +20,14 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.core.logging import get_logger
 from app.core.settings import get_app_settings
 from app.database.db_errors import (
     DatabaseInternalError,
     DatabaseUnavailableError,
 )
+
+logger = get_logger("db")
 
 
 class DatabaseSessionManager:
@@ -36,7 +38,9 @@ class DatabaseSessionManager:
     """
 
     def __init__(self, host: str):
-        self.engine: AsyncEngine | None = create_async_engine(host)
+        self.engine: AsyncEngine | None = create_async_engine(
+            host, pool_pre_ping=True
+        )
         self._sessionmaker: async_sessionmaker[AsyncSession] = async_sessionmaker(
             bind=self.engine,
             autocommit=False,
@@ -46,11 +50,8 @@ class DatabaseSessionManager:
     async def close(self):
         """Close the database engine and sessionmaker."""
         if self.engine is None:
-            raise DatabaseInternalError(
-                message="Mesin database sudah ditutup.",
-                error_code="db_engine_closed",
-                context={"engine": None},
-            )
+            logger.warning("Database engine already closed")
+            return
         await self.engine.dispose()
         self.engine = None
         self._sessionmaker = None  # type: ignore
@@ -68,7 +69,7 @@ class DatabaseSessionManager:
             try:
                 yield connection
             except SQLAlchemyError as e:
-                logger.error(f"Connection error occurred: {e}")
+                logger.error("Connection error occurred: {}", e)
                 raise DatabaseUnavailableError(
                     message="Koneksi database gagal.",
                     error_code="db_connection_failed",
@@ -89,7 +90,7 @@ class DatabaseSessionManager:
         try:
             yield session
         except SQLAlchemyError as e:
-            logger.error(f"Session error occurred: {e}")
+            logger.error("Session error occurred: {}", e)
             raise DatabaseInternalError(
                 message="Terjadi kesalahan pada session database.",
                 error_code="db_session_error",

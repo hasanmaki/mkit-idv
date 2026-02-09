@@ -20,6 +20,7 @@ import jwt
 from jwt import ExpiredSignatureError
 from jwt import InvalidTokenError as PyJwtInvalidTokenError
 
+from app.core.logging import get_logger
 from app.core.settings import JwtConfig
 
 from .jwt_errors import (
@@ -29,6 +30,8 @@ from .jwt_errors import (
     JwtMissingClaimError,
 )
 from .jwt_schemas import AccessTokenPayload
+
+logger = get_logger("service.jwt")
 
 
 class JwtService:
@@ -75,8 +78,10 @@ class JwtService:
                 options={"verify_aud": False},
             )
         except ExpiredSignatureError as exc:
+            logger.debug("Token verification failed: {}", exc.__class__.__name__)
             raise JwtExpiredTokenError(original_exception=exc)
         except PyJwtInvalidTokenError as exc:
+            logger.debug("Token verification failed: {}", exc.__class__.__name__)
             raise JwtInvalidTokenError(original_exception=exc)
 
     def _require_claim(self, payload: dict[str, Any], key: str) -> Any:
@@ -128,7 +133,11 @@ class JwtService:
             payload.update(extra_claims)
 
         payload_model = AccessTokenPayload(**payload)
-        return self._encode(payload_model.model_dump())
+        token = self._encode(payload_model.model_dump())
+        logger.debug(
+            "Access token created, user_id={}, session_id={}", user_id, session_id
+        )
+        return token
 
     def verify_access_token(self, token: str) -> AccessTokenPayload:
         """Verify an access token.
@@ -149,6 +158,11 @@ class JwtService:
 
         token_type = self._require_claim(payload, "type")
         if token_type != self.ACCESS_TOKEN_TYPE:
+            logger.debug(
+                "Invalid token type: expected={}, actual={}",
+                self.ACCESS_TOKEN_TYPE,
+                token_type,
+            )
             raise JwtInvalidTokenTypeError(
                 context={"expected": self.ACCESS_TOKEN_TYPE, "actual": token_type}
             )
