@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-
 import httpx
 import pytest
-from fastapi import FastAPI
-from pydantic import SecretStr
-
 from app.api.deps import get_auth_service, get_password_hasher, get_user_repo
 from app.api.v1.auth import router as auth_router
-from app.core.utils.hashing import get_password_hasher as core_hasher
 from app.core.settings import JwtConfig
+from app.core.utils.hashing import get_password_hasher as core_hasher
 from app.services.auth.auth_services import AuthService
 from app.services.jwt import JwtService
 from app.services.sessions.session_services import SessionService
+from fastapi import FastAPI
+from pydantic import SecretStr
 
 
 class DummyUser:
@@ -55,6 +52,9 @@ class DummyUserRepo:
             return self.user
         return None
 
+    async def get(self, user_id: int):
+        return await self.get_by_id(user_id)
+
 
 class DummySessionRepo:
     def __init__(self):
@@ -62,6 +62,32 @@ class DummySessionRepo:
 
     async def add(self, session):
         self.sessions[session.session_id] = session
+
+    async def create(self, obj_in):
+        if hasattr(obj_in, "model_dump"):
+            data = obj_in.model_dump(exclude_unset=True)
+        else:
+            data = dict(obj_in)
+
+        class _S:
+            def __init__(self, **kwargs):
+                self.last_activity_at = kwargs.get("last_activity_at")
+                self.revoked_at = kwargs.get("revoked_at")
+                for k, v in kwargs.items():
+                    setattr(self, k, v)
+                self._is_revoked = kwargs.get("is_revoked", False)
+
+            @property
+            def is_revoked(self):
+                return getattr(self, "_is_revoked", False)
+
+            @is_revoked.setter
+            def is_revoked(self, value):
+                self._is_revoked = value
+
+        session = _S(**data)
+        self.sessions[session.session_id] = session
+        return session
 
     async def get_by_session_id(self, session_id):
         return self.sessions.get(session_id)
@@ -118,7 +144,9 @@ def auth_service(jwt_config: JwtConfig) -> AuthService:
 
 
 @pytest.mark.asyncio
-async def test_login_refresh_logout_flow(app: FastAPI, auth_service: AuthService) -> None:
+async def test_login_refresh_logout_flow(
+    app: FastAPI, auth_service: AuthService
+) -> None:
     app.dependency_overrides[get_auth_service] = lambda: auth_service
     app.dependency_overrides[get_user_repo] = lambda: auth_service.users
     app.dependency_overrides[get_password_hasher] = lambda: core_hasher()

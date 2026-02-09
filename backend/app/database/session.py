@@ -38,9 +38,7 @@ class DatabaseSessionManager:
     """
 
     def __init__(self, host: str):
-        self.engine: AsyncEngine | None = create_async_engine(
-            host, pool_pre_ping=True
-        )
+        self.engine: AsyncEngine | None = create_async_engine(host, pool_pre_ping=True)
         self._sessionmaker: async_sessionmaker[AsyncSession] = async_sessionmaker(
             bind=self.engine,
             autocommit=False,

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from functools import lru_cache
-from typing import Protocol
+from typing import Protocol, cast
 
+import anyio
 from fastapi import FastAPI
 from fastapi_limiter.depends import RateLimiter as FastapiRateLimiter
 from pyrate_limiter import Duration, Limiter, Rate
@@ -41,36 +43,50 @@ class FastapiLimiterRateLimiter:
         if limiter is None:
             limiter = self._build_limiter(limit_value)
             self._limiters[limit_value] = limiter
-        return FastapiRateLimiter(limiter=limiter)
+        # fastapi_limiter expects try_acquire_async(key, blocking=False)
+        return FastapiRateLimiter(limiter=cast(Limiter, _LimiterAdapter(limiter)))
 
     def _build_limiter(self, limit_value: str):
         rate = _parse_rate_limit(limit_value)
         return Limiter(rate)
 
 
+class _LimiterAdapter:
+    """Adapter around pyrate_limiter.Limiter to expose the async
+    try_acquire_async(key, blocking=False) API expected by
+    fastapi_limiter.depends.RateLimiter.
+
+    We keep the adapter minimal — we ignore the `blocking` argument
+    because the pyrate limiter used here doesn't support blocking
+    semantics in async APIs; tests expect non-blocking behavior.
+    """
+
+    def __init__(self, limiter: Limiter):
+        self._limiter = limiter
+
+    async def try_acquire_async(self, key: str, blocking: bool = False) -> bool:
+        """Call the synchronous limiter in a thread to avoid blocking the event loop.
+
+        Note: the ``blocking`` argument is intentionally ignored — the
+        underlying ``pyrate_limiter.Limiter`` used here does not provide
+        an async blocking API. If you need true blocking semantics, we can
+        implement a retry/wait loop or swap to a limiter with that support.
+        """
+        return await anyio.to_thread.run_sync(self._limiter.try_acquire, key)
+
+
+_RATE_RE = re.compile(r"^\s*(\d+)\s*/\s*([0-9]*)([a-z]+)\s*$", re.I)
+
+
 def _parse_rate_limit(limit_value: str):
-    raw = limit_value.strip().lower()
-    if "/" not in raw:
+    match = _RATE_RE.match(limit_value)
+    if not match:
         raise ValueError(
             "Invalid rate limit format. Expected '<count>/<period>', e.g. '5/minute'."
         )
-    count_part, period_part = [part.strip() for part in raw.split("/", 1)]
-    if not count_part.isdigit():
-        raise ValueError(
-            "Invalid rate limit format. Expected numeric count before '/'."
-        )
-    count = int(count_part)
-
-    # Accept 'minute', 'min', 'm', 'second', 'sec', 's', 'hour', 'h', 'day', 'd', 'week', 'w'
-    num = ""
-    unit = ""
-    for ch in period_part:
-        if ch.isdigit():
-            num += ch
-        else:
-            unit += ch
-    unit = unit.strip()
-    multiplier = int(num) if num else 1
+    count = int(match.group(1))
+    multiplier = int(match.group(2)) if match.group(2) else 1
+    unit = match.group(3).lower()
 
     unit_map = {
         "second": Duration.SECOND,

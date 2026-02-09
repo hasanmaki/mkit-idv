@@ -5,12 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi import HTTPException
-
 from app.api.deps import get_current_user
 from app.core.settings import JwtConfig
 from app.services.jwt import JwtService
 from app.services.sessions.session_services import SessionService
+from fastapi import HTTPException
 from pydantic import SecretStr
 
 
@@ -56,6 +55,10 @@ class DummyUserRepo:
         if self.user and self.user.id == user_id:
             return self.user
         return None
+
+    # compatibility shim for repo.get used by real repository interface
+    async def get(self, user_id: int):
+        return await self.get_by_id(user_id)
 
 
 @pytest.mark.asyncio

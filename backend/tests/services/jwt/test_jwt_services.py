@@ -124,9 +124,7 @@ class TestCreateAccessToken:
 class TestRefreshTokenGeneration:
     """Tests for opaque refresh token generation and hashing."""
 
-    def test_generate_refresh_token_basic(
-        self, jwt_service: JwtService
-    ) -> None:
+    def test_generate_refresh_token_basic(self, jwt_service: JwtService) -> None:
         """Test basic refresh token generation."""
         token, token_hash = jwt_service.generate_refresh_token()
         assert isinstance(token, str)

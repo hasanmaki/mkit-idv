@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
 from datetime import UTC, datetime
 
-from fastapi import FastAPI
 import httpx
-
+import pytest
 from app.api.deps import get_session_service, require_admin
 from app.api.v1.auth import router as auth_router
+from fastapi import FastAPI
 
 
 class DummySession:
@@ -59,9 +58,7 @@ async def test_admin_revoke_session(app: FastAPI) -> None:
     app.dependency_overrides[require_admin] = lambda: object()
 
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(
             "/api/v1/auth/admin/revoke-session",
             json={"session_id": "abc"},
@@ -78,9 +75,7 @@ async def test_admin_revoke_user_sessions(app: FastAPI) -> None:
     app.dependency_overrides[require_admin] = lambda: object()
 
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(
             "/api/v1/auth/admin/revoke-user-sessions",
             json={"user_id": 42},
@@ -98,9 +93,7 @@ async def test_admin_list_sessions(app: FastAPI) -> None:
     app.dependency_overrides[require_admin] = lambda: object()
 
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/api/v1/auth/admin/sessions", params={"user_id": 7})
 
     assert resp.status_code == 200

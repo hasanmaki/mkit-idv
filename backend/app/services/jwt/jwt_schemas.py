@@ -46,5 +46,3 @@ class AccessTokenPayload(BaseModel):
     def session_id(self) -> str:
         """Get session ID from JWT ID claim."""
         return self.jti
-
-

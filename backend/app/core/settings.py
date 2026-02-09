@@ -95,10 +95,10 @@ class AdminConfig(BaseSettings):
 
     model_config = {"env_prefix": "ADMIN_"}
 
-    name: str
-    username: str
-    email: str
-    password: SecretStr
+    name: str = "Administrator"
+    username: str = "admin"
+    email: str = "admin@example.com"
+    password: SecretStr = SecretStr("admin")
 
 
 class AppSettings(BaseSettings):
@@ -112,7 +112,7 @@ class AppSettings(BaseSettings):
     jwt: JwtConfig = Field(default_factory=JwtConfig)
     httpx: HttpxConfig = Field(default_factory=HttpxConfig)
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
-    admin: AdminConfig
+    admin: AdminConfig = Field(default_factory=lambda: AdminConfig())
 
     model_config = {
         "env_file": ".env",

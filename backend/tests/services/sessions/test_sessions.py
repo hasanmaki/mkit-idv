@@ -40,6 +40,16 @@ class DummyRepo:
     async def add(self, session):
         self.sessions[session.session_id] = session
 
+    async def create(self, obj_in):
+        # accept either a SessionCreate (pydantic) or mapping
+        if hasattr(obj_in, "model_dump"):
+            data = obj_in.model_dump(exclude_unset=True)
+        else:
+            data = dict(obj_in)
+        session = DummySession(**data)
+        await self.add(session)
+        return session
+
     async def get_by_session_id(self, session_id):
         return self.sessions.get(session_id)
 
