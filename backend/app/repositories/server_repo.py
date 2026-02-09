@@ -48,9 +48,9 @@ class ServerRepository(BaseRepository[Servers, ServerCreate, ServerUpdate]):
     def __init__(self, db: AsyncSession):
         super().__init__(db, Servers)
 
-    async def get_by_server_id(self, server_id: int) -> Servers | None:
+    async def get(self, server_id: int) -> Servers | None:
         """Get server by ID."""
-        return await super().get_by_id(server_id)
+        return await super().get(server_id)
 
     async def get_by_name(self, name: str) -> Servers | None:
         """Get server by name."""
@@ -60,12 +60,12 @@ class ServerRepository(BaseRepository[Servers, ServerCreate, ServerUpdate]):
 
     async def update_by_id(self, server_id: int, **kwargs) -> None:
         """Update server by ID."""
-        server = await super().get_by_id(server_id)
+        server = await super().get(server_id)
         if server:
             await self.update(server, kwargs)
             logger.debug("Server updated, server_id={}", server_id)
 
-    async def list_servers(
+    async def list(
         self, skip: int = 0, limit: int = 100, include_inactive: bool = False
     ) -> list[Servers]:
         """List servers with pagination.
@@ -95,7 +95,7 @@ class ServerRepository(BaseRepository[Servers, ServerCreate, ServerUpdate]):
         Returns:
             None
         """
-        server = await super().get_by_id(server_id)
+        server = await super().get(server_id)
         if server:
             await self.update(server, {"is_active": False})
             logger.debug("Server soft-deleted, server_id={}", server_id)

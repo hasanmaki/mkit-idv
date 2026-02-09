@@ -70,7 +70,7 @@ class SessionRepository(BaseRepository[Session, SessionCreate, SessionUpdate]):
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def list_by_user_id(self, user_id: int) -> list[Session]:
+    async def list_by_user(self, user_id: int) -> list[Session]:
         """List sessions by user id."""
         stmt = select(Session).where(Session.user_id == user_id)
         result = await self.db.execute(stmt)

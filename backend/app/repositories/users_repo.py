@@ -26,7 +26,7 @@ class UserRepository(BaseRepository[User, UserCreateDB, UpdateUserRequest]):
         db (AsyncSession): The asynchronous database session.
 
     Methods:
-        get_by_id(user_id: int) -> User | None:
+        get(user_id: int) -> User | None:
             Get user by ID.
         get_by_username(username: str) -> User | None:
             Get user by username.
@@ -77,7 +77,7 @@ class UserRepository(BaseRepository[User, UserCreateDB, UpdateUserRequest]):
         await super().add(user)
         logger.debug("User persisted, user_id={}", user.id)
 
-    async def list_users(
+    async def list(
         self, skip: int = 0, limit: int = 100, include_inactive: bool = False
     ) -> list[User]:
         """List users with pagination.

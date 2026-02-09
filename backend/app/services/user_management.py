@@ -86,7 +86,7 @@ class UserManagementService:
         Returns:
             list[User]: List of user entities.
         """
-        users = await self.user_repo.list_users(
+        users = await self.user_repo.list(
             skip=skip,
             limit=limit,
             include_inactive=include_inactive,
@@ -105,7 +105,7 @@ class UserManagementService:
         Raises:
             UserNotFoundError: If user is not found.
         """
-        user = await self.user_repo.get_by_id(user_id)
+        user = await self.user_repo.get(user_id)
         if not user:
             raise UserNotFoundError(context={"user_id": user_id})
         return user

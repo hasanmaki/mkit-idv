@@ -76,7 +76,7 @@ class PasswordService:
             UserNotFoundError: If user is not found.
             ValueError: If new password is too short.
         """
-        user = await self.user_repo.get_by_id(user_id)
+        user = await self.user_repo.get(user_id)
 
         if not user:
             logger.warning(

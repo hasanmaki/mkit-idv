@@ -99,7 +99,7 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
         ) from exc
 
-    user = await user_repo.get_by_id(session.user_id)
+    user = await user_repo.get(session.user_id)
     if user is None or not user.is_active:
         logger.warning(
             "Auth dependency: inactive or missing user, user_id={}", session.user_id

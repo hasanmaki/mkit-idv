@@ -23,13 +23,13 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         self.model = model
         self.id_field = id_field
 
-    async def get_by_id(self, obj_id: Any) -> ModelType | None:
+    async def get(self, obj_id: Any) -> ModelType | None:
         """Get entity by primary key-like field."""
         field = getattr(self.model, self.id_field)
         result = await self.db.execute(select(self.model).where(field == obj_id))
         return result.scalar_one_or_none()
 
-    async def get_multi(self, skip: int = 0, limit: int = 100) -> Sequence[ModelType]:
+    async def list(self, skip: int = 0, limit: int = 100) -> Sequence[ModelType]:
         """List entities with pagination."""
         stmt = select(self.model).offset(skip).limit(limit)
         result = await self.db.execute(stmt)
@@ -65,7 +65,7 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
     async def delete(self, obj_id: Any) -> bool:
         """Delete an entity by id."""
-        obj = await self.get_by_id(obj_id)
+        obj = await self.get(obj_id)
         if not obj:
             return False
         await self.db.delete(obj)

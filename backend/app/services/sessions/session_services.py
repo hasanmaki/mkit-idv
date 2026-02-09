@@ -138,11 +138,11 @@ class SessionService:
 
     async def list_sessions_for_user(self, user_id: int) -> list[Session]:
         """List sessions for a user."""
-        return await self.repo.list_by_user_id(user_id)
+        return await self.repo.list_by_user(user_id)
 
     async def revoke_all_sessions_for_user(self, user_id: int) -> int:
         """Revoke all sessions for a user. Returns number of sessions revoked."""
-        sessions = await self.repo.list_by_user_id(user_id)
+        sessions = await self.repo.list_by_user(user_id)
         if not sessions:
             return 0
 
