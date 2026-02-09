@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
 from app.api.deps import get_current_user
 from app.core.settings import JwtConfig
+from app.repositories import SessionRepository, UserRepository
 from app.services.jwt import JwtService
 from app.services.sessions.session_services import SessionService
 from fastapi import HTTPException
@@ -72,7 +74,7 @@ async def test_get_current_user_success() -> None:
         )
     )
     repo = DummySessionRepo()
-    session_service = SessionService(repo)
+    session_service = SessionService(cast(SessionRepository, repo))
 
     user_id = 1
     session_id = "sess-1"
@@ -90,7 +92,7 @@ async def test_get_current_user_success() -> None:
     repo.sessions[session_id] = session
 
     token = jwt_service.create_access_token(user_id=user_id, session_id=session_id)
-    user_repo = DummyUserRepo(DummyUser(user_id))
+    user_repo = cast(UserRepository, DummyUserRepo(DummyUser(user_id)))
 
     user = await get_current_user(
         token=token,
@@ -113,8 +115,8 @@ async def test_get_current_user_missing_token() -> None:
         )
     )
     repo = DummySessionRepo()
-    session_service = SessionService(repo)
-    user_repo = DummyUserRepo(DummyUser(1))
+    session_service = SessionService(cast(SessionRepository, repo))
+    user_repo = cast(UserRepository, DummyUserRepo(DummyUser(1)))
 
     with pytest.raises(HTTPException):
         await get_current_user(
